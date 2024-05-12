@@ -36,13 +36,15 @@ https://lemoncat0817.github.io/Vue3-WeatherWeb/
 
 4.UI組件庫採用 Element-Plus。
 
-5.使用 Vite 作為快速的 Vue 開發工具。
+5.採用RWD響應式設計提高用戶使用體驗。
 
-6.使用 SCSS 進行樣式編寫。
+6.使用 Vite 作為快速的 Vue 開發工具。
 
-7.使用 axios 進行 HTTP 請求。
+7.使用 SCSS 進行樣式編寫。
 
-8.使用 Vue Router 進行路由管理。
+8.使用 axios 進行 HTTP 請求。
+
+9.使用 Vue Router 進行路由管理。
 
 # 安裝與運行
 

@@ -1,0 +1,1 @@
+import{z as o,m as t}from"./index-Dl-Mm33K.js";const a=o("allTaiwan",()=>{const e=t(""),r=t("F-D0047-065");return{districtKeyword:e,locationId:r}},{persist:!0}),n=o("allTaiwanWeek",()=>{const e=t(""),r=t("F-D0047-067");return{districtKeyword:e,locationId:r}},{persist:!0});export{n as a,a as u};

@@ -8,7 +8,7 @@
           <template v-for="item2 in item.hazardConditions?.hazards?.hazard " :key="item2">
             <template v-for="(item3, index) in item2.info?.affectedAreas?.location" :key=item3>
               <div class="locationName">{{ item3.locationName }}</div>
-              <div v-if="!(index + 1 === item2.info?.affectedAreas?.location?.length)">、</div>
+              <div style="color:brown; " v-if="!(index + 1 === item2.info?.affectedAreas?.location?.length)">、</div>
             </template>
           </template>
         </div>

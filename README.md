@@ -3,6 +3,10 @@
 這是一個使用Vue3、TypeScript、Pinia、Element Plus和Vite構建的天氣網站。
 樣式編寫用SCSS，API來源為中央氣象局。
 
+# Demo網站
+
+https://lemoncat0817.github.io/Vue3-WeatherWeb/
+
 # 安裝與運行
 
 確保你已安裝了Node.js和pnpm。

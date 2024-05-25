@@ -22,7 +22,7 @@
       <el-tag class="tag">
         <div class="title" style="color:salmon;  font-weight: bold;">今明36小時內天氣預報</div>
         <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>{{ `預報時間: ${startTime} ~ ${endTime}` }}</div>
+        <div>{{ `預報時間: ${startTime1} ~ ${endTime1}` }}</div>
         <el-dropdown style="margin-top: 10px; ">
           <el-button class="toolBtn" type="warning">
             <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
@@ -69,7 +69,7 @@
       <el-tag class="tag">
         <div class="title" style="color:salmon;  font-weight: bold;">今明36小時內天氣預報</div>
         <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>{{ `預報時間: ${startTime} ~ ${endTime}` }}</div>
+        <div>{{ `預報時間: ${startTime2} ~ ${endTime2}` }}</div>
         <el-dropdown style="margin-top: 10px; ">
           <el-button class="toolBtn" type="warning">
             <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
@@ -116,7 +116,7 @@
       <el-tag class="tag">
         <div class="title" style="color:salmon;  font-weight: bold;">今明36小時內天氣預報</div>
         <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>{{ `預報時間: ${startTime} ~ ${endTime}` }}</div>
+        <div>{{ `預報時間: ${startTime3} ~ ${endTime3}` }}</div>
         <el-dropdown style="margin-top: 10px; ">
           <el-button class="toolBtn" type="warning">
             <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
@@ -217,8 +217,12 @@ watch(() =>
     reqThirtySixHoursWeatherForecast()
   })
 // 分三階段的開始以及結束時間
-const startTime = ref<string>('')
-const endTime = ref<string>('')
+const startTime1 = ref<string>('')
+const endTime1 = ref<string>('')
+const startTime2 = ref<string>('')
+const endTime2 = ref<string>('')
+const startTime3 = ref<string>('')
+const endTime3 = ref<string>('')
 // 計算搜尋的天氣資料
 const searchWeather = computed(() => {
   return weather.value.filter((item: any) => {
@@ -233,8 +237,12 @@ const searchWeather = computed(() => {
 const reqThirtySixHoursWeatherForecast = async () => {
   const res: thirtySixHoursWeatherData = await getThirtySixHoursWeatherForecast()
   weather.value = res.data.records.location
-  startTime.value = res.data.records.location[0].weatherElement[0].time[thirtySixHoursStore.timePeriod].startTime
-  endTime.value = res.data.records.location[0].weatherElement[0].time[thirtySixHoursStore.timePeriod].endTime
+  startTime1.value = res.data.records.location[0].weatherElement[0].time[0].startTime
+  endTime1.value = res.data.records.location[0].weatherElement[0].time[0].endTime
+  startTime2.value = res.data.records.location[0].weatherElement[0].time[1].startTime
+  endTime2.value = res.data.records.location[0].weatherElement[0].time[1].endTime
+  startTime3.value = res.data.records.location[0].weatherElement[0].time[2].startTime
+  endTime3.value = res.data.records.location[0].weatherElement[0].time[2].endTime
   if (thirtySixHoursStore.east || thirtySixHoursStore.south || thirtySixHoursStore.mid || thirtySixHoursStore.north || thirtySixHoursStore.out) {
     weather.value = filter.value
   }

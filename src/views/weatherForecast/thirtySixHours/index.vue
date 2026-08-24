@@ -5,15 +5,15 @@
       <el-menu default-active="1" mode="horizontal" align="center" style="margin: 20px 0px; border: none;">
         <el-menu-item style="width: 300px; font-size: 30px; border-bottom: 1px solid #666; "
           @click="thirtySixHoursStore.timePeriod = 0" index="1">{{
-            getTime()
+            getTimeLabel(0)
           }}</el-menu-item>
         <el-menu-item style="width: 300px; font-size: 30px; border-bottom: 1px solid #666; "
           @click="thirtySixHoursStore.timePeriod = 1" index="2">{{
-            getTime2()
+            getTimeLabel(1)
           }}</el-menu-item>
         <el-menu-item style="width: 300px; font-size: 30px; border-bottom: 1px solid #666; "
           @click="thirtySixHoursStore.timePeriod = 2" index="3">{{
-            getTime3()
+            getTimeLabel(2)
           }}</el-menu-item>
       </el-menu>
     </div>
@@ -167,7 +167,7 @@ import { onMounted, ref, watch, computed } from 'vue'
 import { getThirtySixHoursWeatherForecast } from '@/apis/weatherForecast/index'
 import type { thirtySixHoursWeatherData, location } from '@/apis/weatherForecast/type/thirtySixHours'
 // 引入判斷當前時間的函式
-import { getTime, getTime2, getTime3 } from '@/utils/time'
+import { getTimeLabel } from '@/utils/time'
 // 引入封裝的Table組件
 import thirtySixHoursWeatherTable from './components/thirtySixHoursWeatherTable.vue'
 // 引入倉庫

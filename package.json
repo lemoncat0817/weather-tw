@@ -22,8 +22,7 @@
     "echarts": "^6.1.0",
     "maplibre-gl": "^6.6.0",
     "pinia": "^4.0.3",
-    "reka-ui": "^2.10.3",
-    "vue-echarts": "^8.1.0"
+    "reka-ui": "^2.10.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

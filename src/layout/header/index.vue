@@ -85,7 +85,7 @@ const setColor = () => {
 // 深色模式
 const changeDark = () => {
     const html: any = document.documentElement
-    layOutSettingStore.dark ? (html.className = 'dark') : (html.className = '')
+    html.className = layOutSettingStore.dark ? 'dark' : ''
 }
 // 預定的顏色
 const predefineColors = ref([

@@ -1,0 +1,5 @@
+name = "vue3-weather-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-08-24"
+
+# 金鑰請用 `wrangler secret put CWA_API_KEY` 設定，絕對不要寫在這個檔案或任何會進 git 的地方。

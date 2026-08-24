@@ -66,12 +66,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 // 引入接口以及接口type
 import { getThreeDaysWeatherForecast } from '@/apis/weatherForecast/index'
 import type { threeDaysWeatherData, Location } from '@/apis/weatherForecast/type/threeDays'
 // 引入判斷當前日期的函式
 import { getDay, getDate } from '@/utils/date'
+// 引入地區篩選 composable
+import { useRegionFilter } from '@/composables/useRegionFilter'
 // 引入封裝的Table組件
 import threeDaysWeatherTable from './components/threeDaysWeatherTable.vue'
 // 引入倉庫
@@ -81,45 +83,13 @@ const threeDaysStore = useThreeDaysStore()
 const loading = ref<boolean>(true)
 // 接收當前天氣的資料
 const threeDaysWeather = ref<Location[]>([])
-// 引入東南西北地區
-const north: string[] = ['臺北市', '新北市', '基隆市', '新竹市', '桃園市', '新竹縣', '宜蘭縣']
-const mid: string[] = ['臺中市', '苗栗縣', '彰化縣', '南投縣', '雲林縣']
-const south: string[] = ['高雄市', '臺南市', '嘉義市', '嘉義縣', '屏東縣']
-const east: string[] = ['花蓮縣', '臺東縣']
-const out: string[] = ['金門縣', '連江縣', '澎湖縣']
-// 篩選區域
-const filter = computed(() => {
-  const filterByArea = (area: string[]) => threeDaysWeather.value.filter(item => area.includes(item.locationName));
-
-  let filteredWeather: Location[] = []
-
-  if (threeDaysStore.east) {
-    filteredWeather = filteredWeather.concat(filterByArea(east));
-  }
-  if (threeDaysStore.south) {
-    filteredWeather = filteredWeather.concat(filterByArea(south));
-  }
-  if (threeDaysStore.mid) {
-    filteredWeather = filteredWeather.concat(filterByArea(mid));
-  }
-  if (threeDaysStore.north) {
-    filteredWeather = filteredWeather.concat(filterByArea(north));
-  }
-  if (threeDaysStore.out) {
-    filteredWeather = filteredWeather.concat(filterByArea(out));
-  }
-  if (!threeDaysStore.east && !threeDaysStore.south && !threeDaysStore.mid && !threeDaysStore.north && !threeDaysStore.out) {
-    return threeDaysWeather.value
-  }
-  return filteredWeather
-});
-// 監聽使用者選擇的地區
-watch(() =>
-  [threeDaysStore.east, threeDaysStore.south, threeDaysStore.mid, threeDaysStore.north, threeDaysStore.out]
-  , () => {
-    threeDaysWeather.value = filter.value
-    reqThreeDaysWeatherForecast()
-  })
+// 依縣市所在地區篩選（地區名單、filter computed、watch 都集中在 composable 裡）
+const { filtered: filter } = useRegionFilter(
+  threeDaysWeather,
+  threeDaysStore,
+  (item) => item.locationName,
+  { onRegionChange: () => reqThreeDaysWeatherForecast() }
+)
 // 三個時段各自的日期字串，供模板 v-for 產生對應卡片
 const periods = computed(() => [1, 2, 3].map((offset) => ({ date: getDate(offset) })))
 // 接收使用者輸入的關鍵字

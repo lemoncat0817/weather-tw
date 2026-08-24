@@ -19,6 +19,9 @@ coverage
 .output
 .data
 
+# 含 CWA_API_KEY 等機密，絕不能進版控；.env.example 才是要提交的文件範本
+.env
+
 /cypress/videos/
 /cypress/screenshots/
 

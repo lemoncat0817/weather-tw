@@ -1,15 +1,84 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { buildMeteogramOption } from '@/utils/meteogram'
+import type { TownForecast } from '#shared/types'
+
 const route = useRoute()
 const county = computed(() => String(route.params.county))
 const town = computed(() => String(route.params.town))
 
-useSeoMeta({ title: () => `${town.value}天氣預報 — 氣象知多少` })
+const { data: forecast, status, error } = await useFetch<TownForecast>(
+  () => `/api/forecast/${encodeURIComponent(county.value)}/${encodeURIComponent(town.value)}`,
+  { key: () => `forecast-${county.value}-${town.value}` }
+)
+
+useSeoMeta({
+  title: () => `${town.value}天氣預報 — 氣象知多少`,
+  description: () => `${county.value}${town.value}未來 7 天天氣預報，含逐時溫度、降雨機率、風速與濕度。`
+})
+
+const meteogramOption = computed(() => (forecast.value ? buildMeteogramOption(forecast.value.hourly) : null))
+
+// 目前這個時間點最接近的一筆逐時資料，當作「現況」摘要卡
+const current = computed(() => {
+  if (!forecast.value || forecast.value.hourly.length === 0) return null
+  const now = Date.now()
+  return forecast.value.hourly.reduce((closest, h) =>
+    Math.abs(new Date(h.time).getTime() - now) < Math.abs(new Date(closest.time).getTime() - now) ? h : closest
+  )
+})
 </script>
 
 <template>
-  <PagePlaceholder
-    :title="`${county} ${town} 天氣預報`"
-    description="完整 meteogram（溫度、體感溫度、降雨機率、風標、濕度、晝夜底紋）與逐時資料。"
-    phase="Phase 3"
-  />
+  <div class="space-y-6">
+    <div v-if="status === 'pending'" class="text-text-secondary">載入中…</div>
+
+    <div v-else-if="error || !forecast" class="rounded-lg bg-surface-1 p-6 text-text-secondary">
+      找不到「{{ county }}{{ town }}」的預報資料。
+    </div>
+
+    <template v-else>
+      <header class="space-y-1">
+        <p class="text-sm text-text-muted">{{ county }}</p>
+        <h1 class="text-2xl font-semibold text-text-primary">{{ town }}</h1>
+      </header>
+
+      <section v-if="current" class="flex items-center gap-4 rounded-lg bg-surface-1 p-5">
+        <WeatherIcon :code="current.weatherCode" class="h-14 w-14 text-accent" />
+        <div>
+          <p class="tabular-nums text-3xl font-semibold text-text-primary">{{ current.temperature }}°</p>
+          <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
+        </div>
+        <div class="ml-auto grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-text-secondary sm:grid-cols-4">
+          <div><span class="text-text-muted">降雨機率</span> <span class="tabular-nums">{{ current.pop ?? '—' }}%</span></div>
+          <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
+          <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
+          <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
+        </div>
+      </section>
+
+      <section class="rounded-lg bg-surface-1 p-4">
+        <h2 class="mb-2 text-sm font-medium text-text-secondary">未來 3 天逐時預報</h2>
+        <ChartsBaseChart v-if="meteogramOption" :option="meteogramOption" height="420px" />
+      </section>
+
+      <section class="space-y-2">
+        <h2 class="text-sm font-medium text-text-secondary">未來 7 天</h2>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-7">
+          <div
+            v-for="period in forecast.extended.filter((_, i) => i % 2 === 0)"
+            :key="period.startTime"
+            class="flex flex-col items-center gap-1 rounded-lg bg-surface-1 p-3 text-center"
+          >
+            <p class="text-xs text-text-muted">
+              {{ new Date(period.startTime).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
+            </p>
+            <WeatherIcon :code="period.weatherCode" class="h-7 w-7 text-accent" />
+            <p class="tabular-nums text-sm text-text-primary">{{ period.maxTemperature }}° / {{ period.minTemperature }}°</p>
+            <p class="tabular-nums text-xs text-text-secondary">{{ period.pop ?? '—' }}%</p>
+          </div>
+        </div>
+      </section>
+    </template>
+  </div>
 </template>

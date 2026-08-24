@@ -26,21 +26,7 @@
                   </div>
                 </div>
                 <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red; font-size: 25px; font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.north" />
-                  <span>中部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.mid" />
-                  <span>南部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.south" />
-                  <span>東部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.east" />
-                  <span>離島:</span>
-                  <el-switch v-model="nowWeatherWarningStore.out" />
-                  <el-button style="margin-left: 10px;" type="primary"
-                    @click="nowWeatherWarningStore.resetFilter">重置篩選</el-button>
-                </div>
+                <RegionFilterSwitches :store="nowWeatherWarningStore" />
               </el-card>
             </el-dropdown-menu>
           </template>
@@ -62,21 +48,7 @@
                   </el-icon>
                 </div>
                 <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red; font-size: 25px; font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.north" />
-                  <span>中部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.mid" />
-                  <span>南部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.south" />
-                  <span>東部:</span>
-                  <el-switch v-model="nowWeatherWarningStore.east" />
-                  <span>離島:</span>
-                  <el-switch v-model="nowWeatherWarningStore.out" />
-                  <el-button style="margin-left: 10px;" type="primary"
-                    @click="nowWeatherWarningStore.resetFilter">重置篩選</el-button>
-                </div>
+                <RegionFilterSwitches :store="nowWeatherWarningStore" />
               </el-card>
             </el-dropdown-menu>
           </template>
@@ -133,6 +105,8 @@ import { getNowWeatherWarning } from '@/apis/weatherWarning/index'
 import type { nowWeatherWarningData, LocationRecord } from '@/apis/weatherWarning/type/nowWeatherWarning'
 // 引入地區篩選 composable
 import { useRegionFilter } from '@/composables/useRegionFilter'
+// 引入地區篩選開關元件
+import RegionFilterSwitches from '@/components/RegionFilterSwitches.vue'
 // 引入路由
 import { useRouter } from 'vue-router'
 const router = useRouter()
@@ -210,32 +184,11 @@ onMounted(() => {
   align-items: center;
 }
 
-.filter {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 30px;
-
-  span {
-    margin: 0px 10px;
-    color: red;
-    font-size: 18px;
-    font-weight: bold;
-  }
-}
-
 .alarm {
   cursor: pointer;
 }
 
 // RWD
-// 1280px以下
-@media screen and (max-width: 1280px) {
-  .filter {
-    flex-direction: column;
-  }
-}
-
 // 680px以上
 @media screen and (min-width: 681px) {
   .tag {

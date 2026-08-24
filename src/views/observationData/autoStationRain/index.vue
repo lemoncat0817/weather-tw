@@ -40,21 +40,7 @@
                   </div>
                 </div>
                 <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red; font-size: 25px; font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.north" />
-                  <span>中部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.mid" />
-                  <span>南部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.south" />
-                  <span>東部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.east" />
-                  <span>離島:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.out" />
-                  <el-button style="margin-left: 10px;" type="primary"
-                    @click="autoStationRainWeatherStore.resetFilter">重置篩選</el-button>
-                </div>
+                <RegionFilterSwitches :store="autoStationRainWeatherStore" />
               </el-card>
             </el-dropdown-menu>
           </template>
@@ -92,21 +78,7 @@
                   </div>
                 </div>
                 <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red; font-size: 25px; font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.north" />
-                  <span>中部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.mid" />
-                  <span>南部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.south" />
-                  <span>東部:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.east" />
-                  <span>離島:</span>
-                  <el-switch v-model="autoStationRainWeatherStore.out" />
-                  <el-button style="margin-left: 10px;" type="primary"
-                    @click="autoStationRainWeatherStore.resetFilter">重置篩選</el-button>
-                </div>
+                <RegionFilterSwitches :store="autoStationRainWeatherStore" />
               </el-card>
             </el-dropdown-menu>
           </template>
@@ -470,6 +442,8 @@ import { getAutoStationRainWeatherForecast } from "@/apis/observationData/index"
 import type { autoStationRainWeatherData, Station } from '@/apis/observationData/type/autoStationRain'
 // 引入地區篩選 composable
 import { useRegionFilter } from '@/composables/useRegionFilter'
+// 引入地區篩選開關元件
+import RegionFilterSwitches from '@/components/RegionFilterSwitches.vue'
 // 引入倉庫
 import { useAutoStationRainWeatherStore } from '@/stores/observationData/autoStationRainWeather'
 const autoStationRainWeatherStore = useAutoStationRainWeatherStore()
@@ -777,20 +751,6 @@ onMounted(() => {
   }
 }
 
-.filter {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 30px;
-
-  span {
-    margin: 0px 10px;
-    color: red;
-    font-size: 18px;
-    font-weight: bold;
-  }
-}
-
 // RWD
 // 1280px以下
 @media (max-width: 1280px) {
@@ -806,21 +766,6 @@ onMounted(() => {
 
     .stationSearch {
       margin: 10px;
-    }
-  }
-
-  .filter {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 30px;
-    flex-direction: column;
-
-    span {
-      margin: 0px 10px;
-      color: red;
-      font-size: 18px;
-      font-weight: bold;
     }
   }
 

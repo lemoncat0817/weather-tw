@@ -52,7 +52,10 @@ const goTo = (path: string) => {
 import { useLayoutSettingStore } from '@/stores/layout/layoutSetting'
 const layOutSettingStore = useLayoutSettingStore()
 const time = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
-const timer = ref(0)
+// 用 ReturnType<typeof setInterval> 而非寫死 number，
+// 避免專案同時存在 @types/node（供 Vitest 測試專案使用）與瀏覽器 DOM lib 時，
+// setInterval 的回傳型別（number 或 NodeJS.Timeout）衝突
+const timer = ref<ReturnType<typeof setInterval>>()
 // 刷新頁面時開始計時
 onMounted(() => {
     timer.value = setInterval(() => {

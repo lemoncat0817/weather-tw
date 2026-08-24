@@ -14,6 +14,11 @@ dist-ssr
 coverage
 *.local
 
+# Nuxt
+.nuxt
+.output
+.data
+
 /cypress/videos/
 /cypress/screenshots/
 

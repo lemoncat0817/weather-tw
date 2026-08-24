@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/*
+ * 設計方向：深色專業儀表板（參考 Windy / Ventusky），非雙主題站台——
+ * 這是刻意的產品決定，不是「還沒做亮色模式」。
+ */
+@theme {
+  --font-sans:
+    'Inter', 'Noto Sans TC', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Surface：由深到淺的分層背景，用來做出頁面 > 卡片 > 懸浮元件的視覺層次 */
+  --color-surface-0: #05070d; /* 頁面底色 */
+  --color-surface-1: #0b1220; /* 卡片 */
+  --color-surface-2: #121b2e; /* 卡片內的次層（表格列、輸入框） */
+  --color-surface-3: #1b2740; /* hover / 選取狀態 */
+  --color-border: #253352;
+
+  /* Text */
+  --color-text-primary: #e2e8f0;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  /* Accent：互動元件、連結、目前選取 */
+  --color-accent: #38bdf8;
+  --color-accent-strong: #0ea5e9;
+  --color-accent-soft: #0c4a6e;
+
+  /* 警特報嚴重度（對應 CWA 特報色階慣例） */
+  --color-severity-advisory: #facc15; /* 一般特報：黃 */
+  --color-severity-watch: #fb923c; /* 警戒：橙 */
+  --color-severity-warning: #f87171; /* 警報：紅 */
+  --color-severity-emergency: #c026d3; /* 最高級：紫紅 */
+
+  /* 數據一律用等寬數字，表格與讀數不跳動 */
+  --font-feature-settings-tnum: 'tnum' 1;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-feature-settings: 'tnum' 1;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 尊重使用者的減少動態偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

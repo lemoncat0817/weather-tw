@@ -15,141 +15,53 @@
           getDay(3)
         }}</el-menu-item>
     </el-menu>
-    <!-- 時段一 -->
-    <el-card style=" margin: 40px 50px; border-radius: 20px; " v-if="threeDaysStore.timePeriod === 0">
-      <el-tag class="tag">
-        <div class="title" style="color:salmon; font-weight: bold;">未來三天天氣預報</div>
-        <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>資料內容包含(天氣、降雨機率、溫度、體感溫度、相對濕度、舒適度指數、風速、風向，露點溫度)</div>
-        <el-dropdown style="margin-top: 10px; ">
-          <el-button class="toolBtn" type="warning">
-            <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
-            <el-icon style="margin-left: 10px;"><arrow-down /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu style="padding: 0; ">
-              <el-card style="background: pink; ">
-                <!-- 搜尋功能 -->
-                <div class="search">
-                  <span style="margin-right: 5px; color:red; font-weight: bold;">搜尋縣市:</span>
-                  <el-input size="small" v-model="threeDaysStore.keyWord" placeholder="請輸入縣市名稱" style="width: 300px;" />
-                  <el-icon style="border: 2px gray solid; padding: 5px; " class="icon">
-                    <Search style="color:red;" />
-                  </el-icon>
-                </div>
-                <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red;  font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="threeDaysStore.north" size="small" />
-                  <span>中部:</span>
-                  <el-switch v-model="threeDaysStore.mid" size="small" />
-                  <span>南部:</span>
-                  <el-switch v-model="threeDaysStore.south" size="small" />
-                  <span>東部:</span>
-                  <el-switch v-model="threeDaysStore.east" size="small" />
-                  <span>離島:</span>
-                  <el-switch v-model="threeDaysStore.out" size="small" />
-                  <el-button style="margin-left: 10px;" type="primary" size="small"
-                    @click="threeDaysStore.resetFilter">重置篩選</el-button>
-                </div>
-              </el-card>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </el-tag>
-      <threeDaysWeatherTable :loading="loading" :threeDaysWeather="searchWeather" :getDate="getDate(1)" />
-    </el-card>
-    <!-- 時段二 -->
-    <el-card style=" margin: 40px 50px; border-radius: 20px; " v-if="threeDaysStore.timePeriod === 1">
-      <el-tag class="tag">
-        <div class="title" style="color:salmon; font-weight: bold;">未來三天天氣預報</div>
-        <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>資料內容包含(天氣、降雨機率、溫度、體感溫度、相對濕度、舒適度指數、風速、風向，露點溫度)</div>
-        <el-dropdown style="margin-top: 10px; ">
-          <el-button class="toolBtn" type="warning">
-            <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
-            <el-icon style="margin-left: 10px;"><arrow-down /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu style="padding: 0; ">
-              <el-card style="background: pink; ">
-                <!-- 搜尋功能 -->
-                <div class="search">
-                  <span style="margin-right: 5px; color:red; font-weight: bold;">搜尋縣市:</span>
-                  <el-input size="small" v-model="threeDaysStore.keyWord" placeholder="請輸入縣市名稱" style="width: 300px;" />
-                  <el-icon style="border: 2px gray solid; padding: 5px; " class="icon">
-                    <Search style="color:red;" />
-                  </el-icon>
-                </div>
-                <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red;  font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="threeDaysStore.north" size="small" />
-                  <span>中部:</span>
-                  <el-switch v-model="threeDaysStore.mid" size="small" />
-                  <span>南部:</span>
-                  <el-switch v-model="threeDaysStore.south" size="small" />
-                  <span>東部:</span>
-                  <el-switch v-model="threeDaysStore.east" size="small" />
-                  <span>離島:</span>
-                  <el-switch v-model="threeDaysStore.out" size="small" />
-                  <el-button style="margin-left: 10px;" type="primary" size="small"
-                    @click="threeDaysStore.resetFilter">重置篩選</el-button>
-                </div>
-              </el-card>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </el-tag>
-      <threeDaysWeatherTable :loading="loading" :threeDaysWeather="searchWeather" :getDate="getDate(2)" />
-    </el-card>
-    <!-- 時段三 -->
-    <el-card style=" margin: 40px 50px; border-radius: 20px; " v-if="threeDaysStore.timePeriod === 2">
-      <el-tag class="tag">
-        <div class="title" style="color:salmon; font-weight: bold;">未來三天天氣預報</div>
-        <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
-        <div>資料內容包含(天氣、降雨機率、溫度、體感溫度、相對濕度、舒適度指數、風速、風向，露點溫度)</div>
-        <el-dropdown style="margin-top: 10px; ">
-          <el-button class="toolBtn" type="warning">
-            <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
-            <el-icon style="margin-left: 10px;"><arrow-down /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu style="padding: 0; ">
-              <el-card style="background: pink; ">
-                <!-- 搜尋功能 -->
-                <div class="search">
-                  <span style="margin-right: 5px; color:red; font-weight: bold;">搜尋縣市:</span>
-                  <el-input size="small" v-model="threeDaysStore.keyWord" placeholder="請輸入縣市名稱" style="width: 300px;" />
-                  <el-icon style="border: 2px gray solid; padding: 5px; " class="icon">
-                    <Search style="color:red;" />
-                  </el-icon>
-                </div>
-                <!-- 篩選功能 -->
-                <div class="filter">
-                  <span style="color:red;  font-weight: bold;">依照縣市所在區域篩選:</span>
-                  <span>北部:</span>
-                  <el-switch v-model="threeDaysStore.north" size="small" />
-                  <span>中部:</span>
-                  <el-switch v-model="threeDaysStore.mid" size="small" />
-                  <span>南部:</span>
-                  <el-switch v-model="threeDaysStore.south" size="small" />
-                  <span>東部:</span>
-                  <el-switch v-model="threeDaysStore.east" size="small" />
-                  <span>離島:</span>
-                  <el-switch v-model="threeDaysStore.out" size="small" />
-                  <el-button style="margin-left: 10px;" type="primary" size="small"
-                    @click="threeDaysStore.resetFilter">重置篩選</el-button>
-                </div>
-              </el-card>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </el-tag>
-      <threeDaysWeatherTable :loading="loading" :threeDaysWeather="searchWeather" :getDate="getDate(3)" />
-    </el-card>
+    <!-- 三個時段的天氣預報卡片（同一份 markup，依 periods 陣列產生） -->
+    <template v-for="(period, index) in periods" :key="index">
+      <el-card style=" margin: 40px 50px; border-radius: 20px; " v-if="threeDaysStore.timePeriod === index">
+        <el-tag class="tag">
+          <div class="title" style="color:salmon; font-weight: bold;">未來三天天氣預報</div>
+          <div style="color:red; margin: 5px 0px;">此資料約每六小時更新一次</div>
+          <div>資料內容包含(天氣、降雨機率、溫度、體感溫度、相對濕度、舒適度指數、風速、風向，露點溫度)</div>
+          <el-dropdown style="margin-top: 10px; ">
+            <el-button class="toolBtn" type="warning">
+              <div style="color: yellow;">搜尋你想查看縣市或篩選區域</div>
+              <el-icon style="margin-left: 10px;"><arrow-down /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu style="padding: 0; ">
+                <el-card style="background: pink; ">
+                  <!-- 搜尋功能 -->
+                  <div class="search">
+                    <span style="margin-right: 5px; color:red; font-weight: bold;">搜尋縣市:</span>
+                    <el-input size="small" v-model="threeDaysStore.keyWord" placeholder="請輸入縣市名稱" style="width: 300px;" />
+                    <el-icon style="border: 2px gray solid; padding: 5px; " class="icon">
+                      <Search style="color:red;" />
+                    </el-icon>
+                  </div>
+                  <!-- 篩選功能 -->
+                  <div class="filter">
+                    <span style="color:red;  font-weight: bold;">依照縣市所在區域篩選:</span>
+                    <span>北部:</span>
+                    <el-switch v-model="threeDaysStore.north" size="small" />
+                    <span>中部:</span>
+                    <el-switch v-model="threeDaysStore.mid" size="small" />
+                    <span>南部:</span>
+                    <el-switch v-model="threeDaysStore.south" size="small" />
+                    <span>東部:</span>
+                    <el-switch v-model="threeDaysStore.east" size="small" />
+                    <span>離島:</span>
+                    <el-switch v-model="threeDaysStore.out" size="small" />
+                    <el-button style="margin-left: 10px;" type="primary" size="small"
+                      @click="threeDaysStore.resetFilter">重置篩選</el-button>
+                  </div>
+                </el-card>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </el-tag>
+        <threeDaysWeatherTable :loading="loading" :threeDaysWeather="searchWeather" :getDate="period.date" />
+      </el-card>
+    </template>
   </div>
 </template>
 
@@ -208,6 +120,8 @@ watch(() =>
     threeDaysWeather.value = filter.value
     reqThreeDaysWeatherForecast()
   })
+// 三個時段各自的日期字串，供模板 v-for 產生對應卡片
+const periods = computed(() => [1, 2, 3].map((offset) => ({ date: getDate(offset) })))
 // 接收使用者輸入的關鍵字
 // 計算搜尋的天氣資料
 const searchWeather = computed(() => {

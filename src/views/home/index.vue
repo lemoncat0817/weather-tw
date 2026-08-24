@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount, onMounted } from 'vue'
 // 引入時間格式化套件
-import moment from 'moment'
+import dayjs from 'dayjs'
 // 引入router
 import { useRouter } from 'vue-router'
 const router = useRouter()
@@ -51,12 +51,12 @@ const goTo = (path: string) => {
 // 引入layoutsetting倉庫
 import { useLayoutSettingStore } from '@/stores/layout/layoutSetting'
 const layOutSettingStore = useLayoutSettingStore()
-const time = ref(moment().format('YYYY-MM-DD HH:mm:ss'))
+const time = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 const timer = ref(0)
 // 刷新頁面時開始計時
 onMounted(() => {
     timer.value = setInterval(() => {
-        time.value = moment().format('YYYY-MM-DD HH:mm:ss')
+        time.value = dayjs().format('YYYY-MM-DD HH:mm:ss')
     }, 1000)
 })
 // 離開頁面時銷毀計時器

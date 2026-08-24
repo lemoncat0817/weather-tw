@@ -326,50 +326,23 @@ import { onMounted, ref, computed, watch } from "vue"
 // 引入接口以及接口type
 import { getAutoStationWeatherForecast } from "@/apis/observationData/index"
 import type { autoStationWeatherData, Station } from '@/apis/observationData/type/autoStation'
+// 引入地區篩選 composable
+import { useRegionFilter } from '@/composables/useRegionFilter'
 // 引入倉庫
 import { useAutoStationWeatherStore } from '@/stores/observationData/autoStationWeather'
 const autoStationWeatherStore = useAutoStationWeatherStore()
 // 接收當前天氣的資料
 const autoStationWeather = ref<Station[]>([])
-// 引入東南西北地區
-const north: string[] = ['臺北市', '新北市', '基隆市', '新竹市', '桃園市', '新竹縣', '宜蘭縣']
-const mid: string[] = ['臺中市', '苗栗縣', '彰化縣', '南投縣', '雲林縣']
-const south: string[] = ['高雄市', '臺南市', '嘉義市', '嘉義縣', '屏東縣']
-const east: string[] = ['花蓮縣', '臺東縣']
-const out: string[] = ['金門縣', '連江縣', '澎湖縣']
-// 篩選區域
-const filter = computed(() => {
-  const filterByArea = (area: string[]) => autoStationWeather.value.filter(item => area.includes(item.GeoInfo.CountyName));
-
-  let filteredWeather: Station[] = []
-
-  if (autoStationWeatherStore.east) {
-    filteredWeather = filteredWeather.concat(filterByArea(east));
+// 依縣市所在地區篩選（地區名單、filter computed、watch 都集中在 composable 裡）
+const { filtered: filter } = useRegionFilter(
+  autoStationWeather,
+  autoStationWeatherStore,
+  (item) => item.GeoInfo.CountyName,
+  {
+    onNoRegionSelected: () => reqAutoStationWeatherForecast(),
+    onRegionChange: () => reqAutoStationWeatherForecast()
   }
-  if (autoStationWeatherStore.south) {
-    filteredWeather = filteredWeather.concat(filterByArea(south));
-  }
-  if (autoStationWeatherStore.mid) {
-    filteredWeather = filteredWeather.concat(filterByArea(mid));
-  }
-  if (autoStationWeatherStore.north) {
-    filteredWeather = filteredWeather.concat(filterByArea(north));
-  }
-  if (autoStationWeatherStore.out) {
-    filteredWeather = filteredWeather.concat(filterByArea(out));
-  }
-  if (!autoStationWeatherStore.east && !autoStationWeatherStore.south && !autoStationWeatherStore.mid && !autoStationWeatherStore.north && !autoStationWeatherStore.out) {
-    reqAutoStationWeatherForecast();
-  }
-  return filteredWeather
-});
-// 監聽使用者選擇的地區
-watch(() =>
-  [autoStationWeatherStore.east, autoStationWeatherStore.south, autoStationWeatherStore.mid, autoStationWeatherStore.north, autoStationWeatherStore.out]
-  , () => {
-    autoStationWeather.value = filter.value
-    reqAutoStationWeatherForecast()
-  })
+)
 // 分頁組件
 const currentPage = ref<number>(1)
 const pageSize = ref<number>(15)

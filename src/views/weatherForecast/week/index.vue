@@ -200,6 +200,8 @@ import { ref, onMounted, watch, computed } from 'vue'
 // 引入接口以及接口type
 import { getWeekWeatherForecast } from '@/apis/weatherForecast/index'
 import type { weekWeatherData, Location } from '@/apis/weatherForecast/type/week'
+// 引入地區篩選 composable
+import { useRegionFilter } from '@/composables/useRegionFilter'
 // 引入倉庫
 import { useWeekStore } from '@/stores/weatherForecast/week'
 const weekStore = useWeekStore()
@@ -230,45 +232,13 @@ onBeforeRouteLeave((to, from, next) => {
 })
 // 接收接口回傳的天氣資料
 const weekWeather = ref<Location[]>([])
-// 引入東南西北地區
-const north: string[] = ['臺北市', '新北市', '基隆市', '新竹市', '桃園市', '新竹縣', '宜蘭縣']
-const mid: string[] = ['臺中市', '苗栗縣', '彰化縣', '南投縣', '雲林縣']
-const south: string[] = ['高雄市', '臺南市', '嘉義市', '嘉義縣', '屏東縣']
-const east: string[] = ['花蓮縣', '臺東縣']
-const out: string[] = ['金門縣', '連江縣', '澎湖縣']
-// 篩選區域
-const filter = computed(() => {
-  const filterByArea = (area: string[]) => weekWeather.value.filter(item => area.includes(item.locationName));
-
-  let filteredWeather: Location[] = []
-
-  if (weekStore.east) {
-    filteredWeather = filteredWeather.concat(filterByArea(east));
-  }
-  if (weekStore.south) {
-    filteredWeather = filteredWeather.concat(filterByArea(south));
-  }
-  if (weekStore.mid) {
-    filteredWeather = filteredWeather.concat(filterByArea(mid));
-  }
-  if (weekStore.north) {
-    filteredWeather = filteredWeather.concat(filterByArea(north));
-  }
-  if (weekStore.out) {
-    filteredWeather = filteredWeather.concat(filterByArea(out));
-  }
-  if (!weekStore.east && !weekStore.south && !weekStore.mid && !weekStore.north && !weekStore.out) {
-    return weekWeather.value
-  }
-  return filteredWeather
-});
-// 監聽使用者選擇的地區
-watch(async () =>
-  [weekStore.east, weekStore.south, weekStore.mid, weekStore.north, weekStore.out]
-  , () => {
-    weekWeather.value = filter.value
-    reqWeekWeatherForecast()
-  })
+// 依縣市所在地區篩選（地區名單、filter computed、watch 都集中在 composable 裡）
+const { filtered: filter } = useRegionFilter(
+  weekWeather,
+  weekStore,
+  (item) => item.locationName,
+  { onRegionChange: () => reqWeekWeatherForecast() }
+)
 
 // 計算搜尋的天氣資料
 const searchWeather = computed(() => {

@@ -1,29 +1,18 @@
-import { globalIgnores } from 'eslint/config'
-import js from '@eslint/js'
-import pluginVue from 'eslint-plugin-vue'
-import { defineConfigWithVueTs, vueTsConfigs, configureVueProject } from '@vue/eslint-config-typescript'
-import skipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+// @nuxt/eslint 依專案的 nuxt.config.ts / 檔案結構自動產生基礎 flat config
+// （型別、Vue 規則、auto-import 全域變數等），這裡只疊加專案自訂規則
+import withNuxt from './.nuxt/eslint.config.mjs'
 
-configureVueProject({
-  rootDir: import.meta.dirname
-})
-
-export default defineConfigWithVueTs(
-  globalIgnores(['dist/**', 'dist-ssr/**', 'coverage/**', 'worker/.wrangler/**']),
-  js.configs.recommended,
-  pluginVue.configs['flat/essential'],
-  vueTsConfigs.recommended,
-  skipFormatting,
+export default withNuxt(
+  {
+    // src/ 是舊 Vue SPA，遷移期間保留供對照，Phase 7 會整個刪除；
+    // worker/ 是獨立子專案，有自己的 tsconfig/依賴，不用根目錄規則檢查
+    ignores: ['src/**', 'worker/**', 'dist/**', '.output/**']
+  },
   {
     name: 'app/rules',
     rules: {
-      'vue/multi-word-component-names': ['error', { ignores: ['index'] }],
-      // vueTsConfigs.recommended is typescript-eslint's actual "recommended" preset, which is
-      // stricter than the untyped `plugin:@typescript-eslint/eslint-recommended` this project used
-      // under the old .eslintrc. Restoring the two rules the codebase actually relies on differing
-      // from that default, rather than fixing 100+ pre-existing `any` usages as part of a tooling swap.
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn'
+      // 允許漸進式補型別，暫不強制禁用 any（沿用上一輪對舊碼的決定，新碼盡量避免）
+      '@typescript-eslint/no-explicit-any': 'off'
     }
   }
 )

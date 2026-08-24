@@ -12,7 +12,12 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // maplibre-gl 動態載入自己的 web worker（處理 vector tile 解析），Vite 的依賴預打包
+    // 對這種 `new Worker(new URL(...))` 動態路徑處理不完美，實測會讓 worker 檔案 404/
+    // ERR_FAILED，導致地圖 style/sprite 都正確載入卻整個畫面全黑（worker 掛了，pbf 圖磚
+    // 完全沒被解析）。排除預打包即可讓 Vite 直接照原始模組路徑處理，worker 就能正常載入。
+    optimizeDeps: { exclude: ['maplibre-gl'] }
   },
 
   app: {
@@ -36,7 +41,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     cwaApiKey: '',
     public: {
-      mapStyleUrl: ''
+      // OpenFreeMap 的免金鑰深色 vector style（見 https://openfreemap.org），
+      // 無需註冊、無流量限制；可用 NUXT_PUBLIC_MAP_STYLE_URL 覆寫成自架的 style
+      mapStyleUrl: 'https://tiles.openfreemap.org/styles/dark'
     }
   },
 

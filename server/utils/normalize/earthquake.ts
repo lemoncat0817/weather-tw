@@ -58,12 +58,23 @@ function maxIntensityOf(areas: CwaShakingArea[]): string {
   return max
 }
 
+/**
+ * CWA 的 Intensity.ShakingArea 陣列混雜兩種列：真正「每個縣市一筆」的明細列（AreaDesc 固定是
+ * 「{縣市}地區」），以及 CWA 自己算好、每個震度等級一筆的「彙總列」（AreaDesc 固定是
+ * 「最大震度X級地區」，CountyName 則是該震度等級所有縣市的清單）。兩種列的 AreaIntensity 是一樣的，
+ * 若不濾掉彙總列，同一個縣市就會重複出現。
+ * 一開始想用「CountyName 是否含頓號」判斷彙總列，但若某震度等級剛好只有一個縣市，
+ * 彙總列的 CountyName 就只會是那一個縣市名、不含頓號，跟明細列完全無法區分（已用單元測試鎖住
+ * 這個邊界案例）。AreaDesc 開頭是否為「最大震度」才是兩種列真正、穩定的區別欄位。
+ */
 function normalizeOne(eq: CwaEarthquakeRecord): Earthquake {
-  const areas: EarthquakeShakingArea[] = (eq.Intensity.ShakingArea ?? []).map((a) => ({
-    county: a.CountyName,
-    areaDescription: a.AreaDesc,
-    intensity: a.AreaIntensity
-  }))
+  const areas: EarthquakeShakingArea[] = (eq.Intensity.ShakingArea ?? [])
+    .filter((a) => !a.AreaDesc.startsWith('最大震度'))
+    .map((a) => ({
+      county: a.CountyName,
+      areaDescription: a.AreaDesc,
+      intensity: a.AreaIntensity
+    }))
 
   return {
     id: String(eq.EarthquakeNo),

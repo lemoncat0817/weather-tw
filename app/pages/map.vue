@@ -4,6 +4,7 @@ import { Popup, type MapLibreMap } from 'maplibre-gl'
 import type { RadarFrame, GeoFeatureCollection, GeoPoint, GeoPolygon, Observation, TownSummary } from '#shared/types'
 import { temperatureColorExpression } from '@/utils/mapColorExpression'
 import { temperatureColor } from '@/utils/colorScales'
+import { formatTaipei } from '@/utils/formatDate'
 
 useSeoMeta({ title: '互動地圖 — 氣象知多少', description: '雷達回波、測站觀測與全台鄉鎮溫度分布互動地圖。' })
 
@@ -185,11 +186,9 @@ watch(radarOpacity, (v) => mapInstance.value?.setPaintProperty(RADAR_LAYER, 'ras
         <input v-model="showChoropleth" type="checkbox" class="accent-accent" >
         鄉鎮溫度分布
       </label>
-      <ClientOnly>
-        <span v-if="radarFrames && radarFrames.length > 0" class="ml-auto text-xs text-text-muted">
-          雷達影像時間：{{ new Date(radarFrames[radarFrames.length - 1]!.time).toLocaleString('zh-TW') }}
-        </span>
-      </ClientOnly>
+      <span v-if="radarFrames && radarFrames.length > 0" class="ml-auto text-xs text-text-muted">
+        雷達影像時間：{{ formatTaipei(radarFrames[radarFrames.length - 1]!.time) }}
+      </span>
     </div>
 
     <div class="flex-1 overflow-hidden rounded-lg bg-surface-1">

@@ -4,9 +4,7 @@ import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
   {
-    // src/ 是舊 Vue SPA，遷移期間保留供對照，Phase 7 會整個刪除；
-    // worker/ 是獨立子專案，有自己的 tsconfig/依賴，不用根目錄規則檢查
-    ignores: ['src/**', 'worker/**', 'dist/**', '.output/**']
+    ignores: ['.output/**']
   },
   {
     name: 'app/rules',

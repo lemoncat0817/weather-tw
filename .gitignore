@@ -22,6 +22,13 @@ coverage
 # 含 CWA_API_KEY 等機密，絕不能進版控；.env.example 才是要提交的文件範本
 .env
 
+# Cloudflare：wrangler 的本機狀態/暫存（含建置時產生的 deploy 重新導向設定，機器相依）；
+# .dev.vars 是 wrangler dev 讀本機密鑰的慣例檔名，跟 .env 一樣絕不能進版控
+.wrangler
+.dev.vars
+
+DEPLOY.md
+
 /cypress/videos/
 /cypress/screenshots/
 

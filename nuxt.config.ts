@@ -1,5 +1,12 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// 部署目標是 Cloudflare Workers（見 DEPLOY.md），但這裡故意不把 nitro.preset 寫死成
+// 'cloudflare-module'——本機這一整個開發階段用的都是預設的 node-server preset（`pnpm dev`／
+// `pnpm build` 全部驗證過的是這個），部署時用 `NITRO_PRESET=cloudflare-module` 環境變數
+// 覆寫即可，兩邊都不用改設定檔。以下這些 Cloudflare 專屬設定只在偵測到那個環境變數時才加進去，
+// 確保本機/CI 平常在跑的 node-server 建置流程完全不受影響。
+const isCloudflare = process.env.NITRO_PRESET?.startsWith('cloudflare') ?? false
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
@@ -54,6 +61,22 @@ export default defineNuxtConfig({
     strict: true,
     typeCheck: false // 用 `pnpm typecheck` 手動跑，避免拖慢 dev server
   },
+
+  nitro: isCloudflare
+    ? {
+        cloudflare: {
+          deployConfig: true, // 讓 nitro 在 build 時把 wrangler.jsonc 寫進 .output（跟根目錄的 wrangler.jsonc 合併，見 DEPLOY.md）
+          nodeCompat: true // server/utils/cwa.ts 等程式碼用到的 Node API（如 node:crypto）需要這個相容層
+        },
+        // defineCachedEventHandler 預設用檔案系統快取，Cloudflare Workers 沒有持久化檔案系統，
+        // 改綁到 KV（wrangler.jsonc 裡的 CACHE binding，namespace 要照 DEPLOY.md 的步驟先建立）。
+        // 沒設定的話 nitro 會退回一個行程內的記憶體快取，一樣能動、只是每個 edge 節點各自快取，
+        // 命中率較低——不是壞掉，只是效果打折扣。
+        storage: {
+          cache: { driver: 'cloudflare-kv-binding', binding: 'CACHE' }
+        }
+      }
+    : {},
 
   eslint: {
     config: {

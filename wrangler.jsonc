@@ -1,0 +1,14 @@
+{
+  // Nitro 在 build 時（NITRO_PRESET=cloudflare-module）會讀這個檔案跟自己產生的設定合併，
+  // 寫進 .output/server/wrangler.json，是 `wrangler deploy` 實際吃的檔案——這個檔案本身
+  // 不會被拿去直接部署，只是提供 Nitro 抓不到的設定（主要是下面這個 KV binding）。
+  // CWA 金鑰用 `wrangler secret put NUXT_CWA_API_KEY` 設定，絕對不要寫在這個檔案裡。
+  "name": "vue3-weather",
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "38ca0a3caa9e4ef29451e54148884cc4",
+      "remote": true
+    }
+  ]
+}

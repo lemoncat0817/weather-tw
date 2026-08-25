@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { buildMeteogramOption } from '@/utils/meteogram'
+import { formatTaipeiMonthDay } from '@/utils/formatDate'
 import type { TownForecast } from '#shared/types'
 
 const route = useRoute()
@@ -71,7 +72,7 @@ const current = computed(() => {
             class="flex flex-col items-center gap-1 rounded-lg bg-surface-1 p-3 text-center"
           >
             <p class="text-xs text-text-muted">
-              {{ new Date(period.startTime).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
+              {{ formatTaipeiMonthDay(period.startTime) }}
             </p>
             <WeatherIcon :code="period.weatherCode" class="h-7 w-7 text-accent" />
             <p class="tabular-nums text-sm text-text-primary">{{ period.maxTemperature }}° / {{ period.minTemperature }}°</p>

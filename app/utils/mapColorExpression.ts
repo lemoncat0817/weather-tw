@@ -32,3 +32,8 @@ export function temperatureColorExpression(field: string, colorFn: (t: number) =
   }
   return ['interpolate', ['linear'], ['get', field], ...stops] as unknown as ExpressionSpecification
 }
+
+/** 風速專用：colorScales.windSpeedColor 吃 t∈[0,1]，這裡固定用 0~50 m/s（涵蓋強颱等級）當範圍 */
+export function windSpeedColorExpression(field: string, colorFn: (t: number) => string): ExpressionSpecification {
+  return buildLinearColorExpression(field, [0, 50], colorFn, 6)
+}

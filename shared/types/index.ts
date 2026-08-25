@@ -95,6 +95,17 @@ export interface TownForecast {
   sunset?: string
 }
 
+/** 全台鄉鎮預報摘要（choropleth 用），只取「目前」這一個時間點的代表值，不含完整逐時序列 */
+export interface TownSummary {
+  county: string
+  town: string
+  coordinates: Coordinates
+  temperature: number
+  weatherCode: string
+  weather: string
+  pop: number | null
+}
+
 // ---------------------------------------------------------------------------
 // 觀測資料
 // ---------------------------------------------------------------------------

@@ -1,4 +1,11 @@
-import type { ThirtySixHourForecast, ThirtySixHourPeriod, TownForecast, TownForecastHour, TownForecastPeriod } from '#shared/types'
+import type {
+  ThirtySixHourForecast,
+  ThirtySixHourPeriod,
+  TownForecast,
+  TownForecastHour,
+  TownForecastPeriod,
+  TownSummary
+} from '#shared/types'
 
 // ---------------------------------------------------------------------------
 // F-C0032-001：今明 36 小時預報（縣市層級）
@@ -173,4 +180,29 @@ export function normalizeTownExtended(raw: CwaTownForecastResponse): TownForecas
   const loc = raw.records.Locations[0]?.Location[0]
   if (!loc) return []
   return toExtended(loc)
+}
+
+/**
+ * 全縣市鄉鎮摘要（choropleth 用）：呼叫 F-D0047-093 時不帶 LocationName，
+ * CWA 會回傳該縣市 dataset 底下的「全部」鄉鎮（實測臺北市回傳 12 區），
+ * 這裡只取每個鄉鎮的第一筆（最近的）溫度/天氣現象/降雨機率，不需要完整逐時序列。
+ */
+export function normalizeTownSummaries(raw: CwaTownForecastResponse, county: string): TownSummary[] {
+  const locations = raw.records.Locations[0]?.Location ?? []
+  return locations.map((loc) => {
+    const byName = new Map(loc.WeatherElement.map((el) => [el.ElementName, el.Time]))
+    const temp = byName.get('溫度')?.[0]
+    const pop = byName.get('3小時降雨機率')?.[0]
+    const wx = byName.get('天氣現象')?.[0]
+
+    return {
+      county,
+      town: loc.LocationName,
+      coordinates: { lat: toNumber(loc.Latitude), lon: toNumber(loc.Longitude) },
+      temperature: toNumber(firstValue(temp)),
+      weatherCode: valueOf(wx, 'WeatherCode') ?? '',
+      weather: valueOf(wx, 'Weather') ?? '',
+      pop: pop ? toNumber(firstValue(pop)) : null
+    }
+  })
 }

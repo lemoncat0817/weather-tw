@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
 import type { MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import type { GeoFeatureCollection, GeoPoint, Observation } from '#shared/types'
 import { buildLinearColorExpression, temperatureColorExpression } from '@/utils/mapColorExpression'
@@ -10,7 +11,8 @@ import { formatTaipei } from '@/utils/formatDate'
 useSeoMeta({ title: '觀測資料 — 氣象知多少', description: '全台測站即時觀測地圖與可排序表格，涵蓋氣象站與雨量站。' })
 
 type StationType = 'weather' | 'rain'
-const stationType = ref<StationType>('weather')
+// 記住使用者上次選的測站類型；initOnMounted 的理由見 climate.vue 同樣的寫法
+const stationType = useLocalStorage<StationType>('observation-station-type', 'weather', { initOnMounted: true })
 
 const { data: stations } = await useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations', {
   query: { type: stationType },

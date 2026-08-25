@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
 import type { ClimateComparison } from '#shared/types'
 import { buildAnnualNormalOption, buildRecentVsNormalOption } from '@/utils/climateChart'
 import { CLIMATE_STATIONS, DEFAULT_CLIMATE_STATION_ID } from '@/utils/climateStations'
@@ -11,7 +12,11 @@ useSeoMeta({
   description: '近期觀測與 1991-2020 氣候平均值比較，看看最近的天氣跟「正常」差多少。'
 })
 
-const stationId = ref(DEFAULT_CLIMATE_STATION_ID)
+// 記住使用者上次選的測站。useLocalStorage 預設在 client 端 setup 當下就同步讀 localStorage，
+// 這剛好等於 hydration 那一輪的 render，若跟 SSR 用的預設值不同就會觸發 hydration mismatch——
+// 跟這個 session 修過好幾次的問題是同一類，這次用 initOnMounted 把讀取延到 onMounted 之後，
+// hydration 那一輪一律用預設值，之後才在一次額外的 reactive 更新裡切換成存好的值
+const stationId = useLocalStorage('climate-station-id', DEFAULT_CLIMATE_STATION_ID, { initOnMounted: true })
 const { data: climate } = await useFetch<ClimateComparison>(() => `/api/climate/${stationId.value}`, {
   key: () => `climate-${stationId.value}`
 })

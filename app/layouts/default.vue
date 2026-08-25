@@ -91,7 +91,7 @@ const mobileNavOpen = ref(false)
     </main>
 
     <footer class="border-t border-border px-4 py-4 text-center text-xs text-text-muted">
-      本站為練習用途而製作，天氣相關資料來源皆由中央氣象署提供
+      資料來源：<a href="https://opendata.cwa.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">中央氣象署開放資料平台</a>
     </footer>
   </div>
 </template>

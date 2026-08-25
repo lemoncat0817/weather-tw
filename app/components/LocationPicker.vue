@@ -18,11 +18,14 @@ const query = ref('')
 const activeIndex = ref(0)
 const geoStatus = ref<'idle' | 'locating' | 'denied' | 'unsupported' | 'error'>('idle')
 
+// 故意不截斷結果數量：以前限制只顯示前 8 筆，會讓「捲動看更多」變成沒東西可捲
+// （例如宜蘭縣有 12 個鄉鎮，只搜得到前 8 個）。全台 368 個鄉鎮的清單本身不大，
+// 讓 max-h-64 overflow-y-auto 的容器自己處理捲動就好，不用先幫使用者過濾掉一部分結果。
 const results = computed(() => {
   const q = query.value.trim()
   const list = towns.value ?? []
-  if (!q) return list.slice(0, 8)
-  return list.filter((t) => `${t.county}${t.town}`.includes(q)).slice(0, 8)
+  if (!q) return list
+  return list.filter((t) => `${t.county}${t.town}`.includes(q))
 })
 
 function pick(t: TownSummary | undefined) {

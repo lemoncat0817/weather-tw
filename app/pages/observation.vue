@@ -16,7 +16,7 @@ const stationType = useLocalStorage<StationType>('observation-station-type', 'we
 
 const { data: stations } = await useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations', {
   query: { type: stationType },
-  key: 'observation-stations-full'
+  key: () => `observation-stations-${stationType.value}`
 })
 
 const search = ref('')
@@ -108,7 +108,13 @@ function onMapReady(map: MapLibreMap) {
   renderStations(map)
 }
 
-watch([stations, stationType], () => {
+// 故意只 watch stations，不加 stationType：stations 的內容永遠是「依 stationType 目前這個值
+// 抓回來的資料」（因為 type 就是 query 的一部分），等它真的換好才畫一次就夠。
+// 先前兩個都 watch 時，切換頁籤的瞬間會先用「舊資料＋新 stationType」畫一次（例如雨量站資料
+// 全部沒有溫度，篩選後變成空集合），新資料抓回來後再畫第二次——同一次切換對 MapLibre
+// 的 setData／setPaintProperty（後者尤其貴，資料驅動的 paint 屬性改變要整層重新鑲嵌）
+// 各多打一次，且兩次時間點很接近，會讓效能問題（GPU stall）疊加，這是實測發現的效能 bug。
+watch(stations, () => {
   if (mapInstance.value) renderStations(mapInstance.value)
 })
 </script>

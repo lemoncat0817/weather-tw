@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay } from '@/utils/formatDate'
 import type { TownForecast } from '#shared/types'
@@ -7,6 +8,17 @@ import type { TownForecast } from '#shared/types'
 const route = useRoute()
 const county = computed(() => String(route.params.county))
 const town = computed(() => String(route.params.town))
+
+// 這頁的地區是 route 決定的（不像首頁用 localStorage 記住選擇），換地區用導頁到新的
+// /forecast/[county]/[town] 網址，讓既有的、已經跟著 route.params 反應的 fetch 自然重新抓資料
+const pickerOpen = ref(false)
+const pickerRoot = useTemplateRef<HTMLElement>('pickerRoot')
+onClickOutside(pickerRoot, () => (pickerOpen.value = false))
+
+function onLocationSelect(nextCounty: string, nextTown: string) {
+  pickerOpen.value = false
+  navigateTo(`/forecast/${encodeURIComponent(nextCounty)}/${encodeURIComponent(nextTown)}`)
+}
 
 const { data: forecast, status, error } = await useFetch<TownForecast>(
   () => `/api/forecast/${encodeURIComponent(county.value)}/${encodeURIComponent(town.value)}`,
@@ -39,9 +51,28 @@ const current = computed(() => {
     </div>
 
     <template v-else>
-      <header class="space-y-1">
-        <p class="text-sm text-text-muted">{{ county }}</p>
-        <h1 class="text-2xl font-semibold text-text-primary">{{ town }}</h1>
+      <header class="flex items-start justify-between gap-3">
+        <div class="space-y-1">
+          <p class="text-sm text-text-muted">{{ county }}</p>
+          <h1 class="text-2xl font-semibold text-text-primary">{{ town }}</h1>
+        </div>
+        <div ref="pickerRoot" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-md bg-surface-1 px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+            aria-label="選擇地區"
+            :aria-expanded="pickerOpen"
+            @click="pickerOpen = !pickerOpen"
+          >
+            更改地區
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <div v-if="pickerOpen" class="absolute right-0 top-full z-30 mt-1">
+            <LocationPicker @select="onLocationSelect" @close="pickerOpen = false" />
+          </div>
+        </div>
       </header>
 
       <section v-if="current" class="flex items-center gap-4 rounded-lg bg-surface-1 p-5">

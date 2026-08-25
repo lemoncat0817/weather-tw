@@ -29,3 +29,9 @@ export function formatTaipeiMonthDay(iso: string): string {
   const p = partsOf(new Date(iso), { month: 'numeric', day: 'numeric' })
   return `${p.month}/${p.day}`
 }
+
+/** 現在是台灣時間幾月（1-12）。同樣不能用 new Date().getMonth()——那是執行環境的本地時區，
+ *  SSR/CSR 若剛好跨月份交界、兩邊時區又不同，會算出不同答案。氣候比較頁用來挑「本月」常態值。 */
+export function currentTaipeiMonth(): number {
+  return Number(partsOf(new Date(), { month: 'numeric' }).month)
+}

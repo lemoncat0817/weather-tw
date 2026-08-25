@@ -5,6 +5,7 @@ import type { RadarFrame, GeoFeatureCollection, GeoPoint, GeoPolygon, Observatio
 import { temperatureColorExpression } from '@/utils/mapColorExpression'
 import { temperatureColor } from '@/utils/colorScales'
 import { formatTaipei } from '@/utils/formatDate'
+import { flattenStationsForMap } from '@/utils/stationGeo'
 
 useSeoMeta({ title: '互動地圖 — 氣象知多少', description: '雷達回波、測站觀測與全台鄉鎮溫度分布互動地圖。' })
 
@@ -25,25 +26,6 @@ const STATIONS_LAYER = 'stations-layer'
 const CHOROPLETH_SOURCE = 'choropleth'
 const CHOROPLETH_LAYER = 'choropleth-layer'
 const CHOROPLETH_LINE = 'choropleth-line'
-
-/** MapLibre 的 interpolate expression 拿到 null 會整個評估失敗，缺溫度的測站（例如雨量站）直接濾掉不畫點 */
-function flattenStations(fc: GeoFeatureCollection<GeoPoint, Observation>) {
-  return {
-    type: 'FeatureCollection' as const,
-    features: fc.features
-      .filter((f) => f.properties.reading.temperature !== null)
-      .map((f) => ({
-        type: 'Feature' as const,
-        geometry: f.geometry,
-        properties: {
-          stationName: f.properties.stationName,
-          county: f.properties.county,
-          town: f.properties.town,
-          temperature: f.properties.reading.temperature
-        }
-      }))
-  }
-}
 
 function boundsToCoordinates(
   bounds: [number, number, number, number]
@@ -73,7 +55,7 @@ async function setupLayers(map: MapLibreMap) {
 
   // 測站觀測點
   if (stations.value) {
-    map.addSource(STATIONS_SOURCE, { type: 'geojson', data: flattenStations(stations.value) })
+    map.addSource(STATIONS_SOURCE, { type: 'geojson', data: flattenStationsForMap(stations.value) })
     map.addLayer({
       id: STATIONS_LAYER,
       type: 'circle',

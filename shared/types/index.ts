@@ -214,6 +214,44 @@ export interface Earthquake {
 }
 
 // ---------------------------------------------------------------------------
+// 歷史趨勢／氣候比較
+// ---------------------------------------------------------------------------
+
+/** 某月的氣候平均值常態（C-B0027-001，目前僅取溫度，常態基準年份見 ClimateComparison.normalYears） */
+export interface ClimateMonthNormal {
+  month: number // 1-12
+  meanTemperature: number
+  maxTemperature: number
+  minTemperature: number
+}
+
+/** 近期單筆逐時觀測（C-B0024-001） */
+export interface ClimateHourlyReading {
+  time: string
+  temperature: number
+  relativeHumidity: number | null
+  precipitation: number | null
+}
+
+/** 前一整天的日彙總（C-B0024-001 的 stationObsStatistics，目前只有最新一天可取得） */
+export interface ClimateDailySummary {
+  date: string
+  meanTemperature: number
+  maxTemperature: number
+  minTemperature: number
+}
+
+export interface ClimateComparison {
+  stationId: string
+  stationName: string
+  /** 氣候平均值的基準區間，例如 [1991, 2020] */
+  normalYears: [number, number]
+  monthlyNormals: ClimateMonthNormal[]
+  recentHourly: ClimateHourlyReading[]
+  yesterday: ClimateDailySummary | null
+}
+
+// ---------------------------------------------------------------------------
 // 警特報
 // ---------------------------------------------------------------------------
 

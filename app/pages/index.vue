@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
+import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
@@ -10,21 +11,40 @@ useSeoMeta({
   description: '台灣即時天氣預報、雷達回波、颱風路徑與地震資訊的專業氣象資訊平台。'
 })
 
-// 首頁目前預設看臺北市中正區；地區選擇／定位留待後續迭代
 const DEFAULT_COUNTY = '臺北市'
 const DEFAULT_TOWN = '中正區'
 
+// 記住使用者上次選的地區；initOnMounted 避開 hydration mismatch，理由見 climate.vue 同樣的寫法
+const selectedCounty = useLocalStorage('home-county', DEFAULT_COUNTY, { initOnMounted: true })
+const selectedTown = useLocalStorage('home-town', DEFAULT_TOWN, { initOnMounted: true })
+
 const [{ data: forecast }, { data: warnings }, { data: typhoons }, { data: earthquakes }, { data: radar }] =
   await Promise.all([
-    useFetch<TownForecast>(`/api/forecast/${encodeURIComponent(DEFAULT_COUNTY)}/${encodeURIComponent(DEFAULT_TOWN)}`),
+    useFetch<TownForecast>(
+      () => `/api/forecast/${encodeURIComponent(selectedCounty.value)}/${encodeURIComponent(selectedTown.value)}`,
+      { key: () => `home-forecast-${selectedCounty.value}-${selectedTown.value}` }
+    ),
     useFetch<CountyWarning[]>('/api/warnings'),
     useFetch<Typhoon[]>('/api/typhoon/active'),
     useFetch<Earthquake[]>('/api/earthquake/recent', { query: { limit: 3 } }),
     useFetch<RadarFrame[]>('/api/radar/frames')
   ])
 
+const ACTIVE_WARNINGS_COLLAPSE_AT = 5
 const activeWarnings = computed(() => (warnings.value ?? []).filter((w) => w.hazards.length > 0))
+const visibleWarnings = computed(() => activeWarnings.value.slice(0, ACTIVE_WARNINGS_COLLAPSE_AT))
+const hiddenWarningsCount = computed(() => Math.max(0, activeWarnings.value.length - ACTIVE_WARNINGS_COLLAPSE_AT))
 const latestRadar = computed(() => radar.value?.at(-1) ?? null)
+
+const pickerOpen = ref(false)
+const pickerRoot = useTemplateRef<HTMLElement>('pickerRoot')
+onClickOutside(pickerRoot, () => (pickerOpen.value = false))
+
+function onLocationSelect(county: string, town: string) {
+  selectedCounty.value = county
+  selectedTown.value = town
+  pickerOpen.value = false
+}
 
 const current = computed(() => {
   const hours = forecast.value?.hourly
@@ -44,10 +64,11 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
 
 <template>
   <div class="space-y-6">
-    <!-- 警特報條：只有真的有作用中特報才顯示 -->
+    <!-- 警特報條：只有真的有作用中特報才顯示。特報是安全性資訊，故意不用跑馬燈——
+         使用者不該被迫等內容轉過來才看得到，數量一多就摺疊、連到完整的 /warnings 頁 -->
     <div v-if="activeWarnings.length > 0" class="space-y-1.5 rounded-lg bg-surface-1 p-3">
       <NuxtLink
-        v-for="w in activeWarnings"
+        v-for="w in visibleWarnings"
         :key="w.county"
         to="/warnings"
         class="flex flex-wrap items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-surface-2"
@@ -56,6 +77,13 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
         <span v-for="h in w.hazards" :key="h.phenomena" class="rounded px-1.5 py-0.5 text-xs" :class="severityClass(h.phenomena)">
           {{ h.phenomena }}{{ h.significance }}
         </span>
+      </NuxtLink>
+      <NuxtLink
+        v-if="hiddenWarningsCount > 0"
+        to="/warnings"
+        class="block rounded-md px-2 py-1 text-sm text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+      >
+        還有 {{ hiddenWarningsCount }} 個縣市有特報 →
       </NuxtLink>
     </div>
 
@@ -82,12 +110,28 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
     <section v-if="current" class="flex flex-wrap items-center gap-4 rounded-lg bg-surface-1 p-6">
       <WeatherIcon :code="current.weatherCode" class="h-16 w-16 text-accent" />
       <div>
-        <p class="text-sm text-text-muted">{{ DEFAULT_COUNTY }}{{ DEFAULT_TOWN }}</p>
+        <div ref="pickerRoot" class="relative inline-block">
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-md px-1 -mx-1 text-sm text-text-muted hover:bg-surface-2 hover:text-text-primary"
+            aria-label="選擇地區"
+            :aria-expanded="pickerOpen"
+            @click="pickerOpen = !pickerOpen"
+          >
+            {{ selectedCounty }}{{ selectedTown }}
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <div v-if="pickerOpen" class="absolute left-0 top-full z-30 mt-1">
+            <LocationPicker @select="onLocationSelect" @close="pickerOpen = false" />
+          </div>
+        </div>
         <p class="tabular-nums text-4xl font-semibold text-text-primary">{{ current.temperature }}°</p>
         <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
       </div>
       <NuxtLink
-        :to="`/forecast/${DEFAULT_COUNTY}/${DEFAULT_TOWN}`"
+        :to="`/forecast/${selectedCounty}/${selectedTown}`"
         class="ml-auto rounded-md bg-surface-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
       >
         完整預報 →

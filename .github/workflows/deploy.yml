@@ -1,0 +1,54 @@
+name: Deploy to Cloudflare Workers
+
+# 只有 push 到 master（PR 合併的目標分支）或手動觸發才會部署，避免還沒 merge 的功能分支
+# 意外上線。手動觸發（workflow_dispatch）留給還沒把 feat/redesign 併進 master 前，想先手動
+# 部署驗證一次的情境。
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 部署前的品質關卡：任何一項不過就不部署，跟本機開發全程遵守的驗證流程一致
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # 建置階段不需要真的 CWA 金鑰——金鑰是 useRuntimeConfig() 在「請求當下」才讀的執行期密鑰，
+      # 不是建置期的靜態資料，這裡的值只是讓建置流程過得去（跟本機這整個 session 驗證建置時
+      # 用的方式一樣）。真正的金鑰是下面 wrangler-action 的 secrets 步驟另外設定給 Worker 執行期用的。
+      - name: Build (Cloudflare preset)
+        run: pnpm build:cloudflare
+        env:
+          NUXT_CWA_API_KEY: build-time-placeholder-not-the-real-key
+
+      # nitro 把實際的 wrangler.json 產在 .output/server/，但要用 --cwd .output 這個上一層目錄
+      # 執行 wrangler 才能正確解析到「重新導向」的設定（nitro 自己也會在 build log 印出這個用法，
+      # 本機用 `wrangler deploy --cwd .output` 手動測過確認可行）——直接指到 server/ 目錄會撞見
+      # wrangler 認不出 .wrangler/deploy/config.json 跟 wrangler.json 兩者關係的錯誤。
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .output
+          secrets: |
+            NUXT_CWA_API_KEY
+        env:
+          NUXT_CWA_API_KEY: ${{ secrets.NUXT_CWA_API_KEY }}

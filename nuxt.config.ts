@@ -21,6 +21,9 @@ export default defineNuxtConfig({
   },
 
   app: {
+    // 克制的頁面切換效果（純淡入淡出，不做位移/縮放），且 main.css 的 prefers-reduced-motion
+    // 規則對所有 transition-duration 都強制歸零，這裡不用另外判斷
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: '氣象知多少',
       htmlAttrs: { lang: 'zh-Hant' },

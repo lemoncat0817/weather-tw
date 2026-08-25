@@ -49,6 +49,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 頁面切換：純淡入淡出，克制、不分心 */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
 /* 尊重使用者的減少動態偏好 */
 @media (prefers-reduced-motion: reduce) {
   *,

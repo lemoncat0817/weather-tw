@@ -14,6 +14,13 @@ const mobileNavOpen = ref(false)
 
 <template>
   <div class="flex min-h-screen flex-col bg-surface-0">
+    <a
+      href="#main-content"
+      class="sr-only rounded-md bg-accent px-3 py-2 text-sm text-surface-0 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+    >
+      跳到主要內容
+    </a>
+
     <header
       class="sticky top-0 z-40 border-b border-border bg-surface-0/90 backdrop-blur supports-[backdrop-filter]:bg-surface-0/70"
     >
@@ -79,7 +86,7 @@ const mobileNavOpen = ref(false)
       </nav>
     </header>
 
-    <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+    <main id="main-content" class="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
       <slot />
     </main>
 

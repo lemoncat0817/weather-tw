@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay } from '@/utils/formatDate'
+import { severityClass } from '@/utils/warningSeverity'
 import type { TownForecast, CountyWarning, Typhoon, Earthquake, RadarFrame } from '#shared/types'
 
 useSeoMeta({
@@ -39,12 +40,6 @@ const compactMeteogram = computed(() =>
 )
 
 const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2 === 0).slice(0, 7) ?? [])
-
-function severityClass(hazard: string): string {
-  if (hazard.includes('豪雨') || hazard.includes('颱風')) return 'bg-severity-warning/15 text-severity-warning'
-  if (hazard.includes('大雨') || hazard.includes('低溫')) return 'bg-severity-watch/15 text-severity-watch'
-  return 'bg-severity-advisory/15 text-severity-advisory'
-}
 </script>
 
 <template>

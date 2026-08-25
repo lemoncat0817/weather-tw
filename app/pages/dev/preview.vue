@@ -5,9 +5,9 @@ import type { MapLibreMap} from 'maplibre-gl';
 import { Marker } from 'maplibre-gl'
 import type { EChartsOption } from 'echarts'
 
-// 未上導覽列的內部驗收頁，Phase 2 用來一眼確認共用視覺元件（圖表/地圖/天氣圖示/色階）都正常運作
+// 未上導覽列的內部驗收頁，用來一眼確認共用視覺元件（圖表/地圖/天氣圖示/色階）都正常運作
 definePageMeta({ layout: 'default' })
-useSeoMeta({ title: 'Phase 2 元件預覽 — 氣象知多少', robots: 'noindex' })
+useSeoMeta({ title: '共用元件預覽 — 氣象知多少', robots: 'noindex' })
 
 // 每個圖示語意挑一個代表性的 CWA weatherCode（見 utils/weatherCode.ts 的完整對照表）
 const ICON_DEMO_CODES: Array<[WeatherIconKey, string]> = [
@@ -61,7 +61,7 @@ function onMapReady(map: MapLibreMap) {
 
 <template>
   <div class="space-y-10">
-    <h1 class="text-2xl font-semibold text-text-primary">Phase 2 共用元件預覽</h1>
+    <h1 class="text-2xl font-semibold text-text-primary">共用元件預覽</h1>
 
     <section class="space-y-3">
       <h2 class="text-lg font-medium text-text-primary">天氣圖示（WeatherIcon）</h2>

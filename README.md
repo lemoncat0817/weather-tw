@@ -88,16 +88,7 @@ shared/   前後端共用型別
 
 推送到 `master` 會觸發 GitHub Actions：`typecheck` → `lint` → `test` 全數通過才建置並部署到 Cloudflare Workers。
 
-首次部署需要先準備兩樣東西：
-
-```sh
-pnpm exec wrangler login
-pnpm exec wrangler kv namespace create CACHE   # 把印出的 id 填進 wrangler.jsonc
-```
-
-以及三個 GitHub Actions Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`NUXT_CWA_API_KEY`。
-
-不透過 CI 的話，本機直接 `pnpm deploy:cloudflare` 即可（Worker 執行期密鑰需先設定一次：`pnpm exec wrangler secret put NUXT_CWA_API_KEY --cwd .output`）。
+首次設定、本機手動部署、回滾與密鑰輪替的完整步驟見 **[DEPLOY.md](DEPLOY.md)**。
 
 ## 資料來源
 

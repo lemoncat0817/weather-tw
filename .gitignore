@@ -28,8 +28,6 @@ coverage
 .wrangler
 .dev.vars
 
-DEPLOY.md
-
 /cypress/videos/
 /cypress/screenshots/
 

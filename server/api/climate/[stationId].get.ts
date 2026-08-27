@@ -13,7 +13,7 @@ export default defineCachedEventHandler(
   async (event): Promise<ClimateComparison> => {
     const stationId = getRouterParam(event, 'stationId')
     if (!stationId) {
-      throw createError({ statusCode: 400, statusMessage: '缺少測站代碼' })
+      throw createError({ statusCode: 400, message: '缺少測站代碼' })
     }
 
     const [recent, normal] = await Promise.all([
@@ -23,7 +23,7 @@ export default defineCachedEventHandler(
 
     const comparison = normalizeClimateComparison(recent as never, normal as never)
     if (!comparison) {
-      throw createError({ statusCode: 404, statusMessage: `找不到測站 ${stationId} 的氣候資料` })
+      throw createError({ statusCode: 404, message: `找不到測站 ${stationId} 的氣候資料` })
     }
     return comparison
   },

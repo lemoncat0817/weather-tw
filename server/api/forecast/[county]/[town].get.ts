@@ -10,7 +10,7 @@ export default defineCachedEventHandler(
 
     const ids = COUNTY_DATASETS[county]
     if (!ids) {
-      throw createError({ statusCode: 404, statusMessage: `找不到縣市「${county}」` })
+      throw createError({ statusCode: 404, message: `找不到縣市「${county}」` })
     }
 
     const [hourlyRaw, extendedRaw] = await Promise.all([
@@ -20,7 +20,7 @@ export default defineCachedEventHandler(
 
     const hourly = normalizeTownHourly(hourlyRaw as never, county)
     if (!hourly) {
-      throw createError({ statusCode: 404, statusMessage: `找不到「${county}${town}」的預報資料` })
+      throw createError({ statusCode: 404, message: `找不到「${county}${town}」的預報資料` })
     }
 
     hourly.extended = normalizeTownExtended(extendedRaw as never)

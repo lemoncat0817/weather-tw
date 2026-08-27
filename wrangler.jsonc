@@ -3,7 +3,7 @@
   // 寫進 .output/server/wrangler.json，是 `wrangler deploy` 實際吃的檔案——這個檔案本身
   // 不會被拿去直接部署，只是提供 Nitro 抓不到的設定（主要是下面這個 KV binding）。
   // CWA 金鑰用 `wrangler secret put NUXT_CWA_API_KEY` 設定，絕對不要寫在這個檔案裡。
-  "name": "vue3-weather",
+  "name": "weather-tw",
   "kv_namespaces": [
     {
       "binding": "CACHE",

@@ -9,7 +9,10 @@ function apiKey(): string {
   if (!key) {
     throw createError({
       statusCode: 500,
-      statusMessage: '伺服器尚未設定 CWA_API_KEY（NUXT_CWA_API_KEY 環境變數）'
+      // statusMessage 對應 HTTP 狀態列的 reason phrase，慣例上是短的 ASCII 字串，h3 已經
+      // 開始警告未來版本會把它清洗過（可能截斷或濾掉非 ASCII 字元）；真正要顯示給人看的
+      // 說明文字放 message 才對，這裡跟下面幾個 createError 都同步修正
+      message: '伺服器尚未設定 CWA_API_KEY（NUXT_CWA_API_KEY 環境變數）'
     })
   }
   return key
@@ -27,7 +30,7 @@ async function request<T>(url: string, params: Record<string, string | number | 
   } catch (err) {
     throw createError({
       statusCode: 502,
-      statusMessage: '無法連線至中央氣象署開放資料平台',
+      message: '無法連線至中央氣象署開放資料平台',
       cause: err
     })
   }

@@ -349,9 +349,19 @@ export interface ClimateComparison {
   /** 氣候平均值的基準區間，例如 [1991, 2020] */
   normalYears: [number, number]
   monthlyNormals: ClimateMonthNormal[]
-  monthlyPrecipitationNormals: ClimateMonthPrecipitationNormal[]
   recentHourly: ClimateHourlyReading[]
   yesterday: ClimateDailySummary | null
+}
+
+/**
+ * 雨量／紫外線的補充資訊，刻意跟 ClimateComparison 分開成獨立端點與型別——這兩支上游
+ * （C-B0025-001、O-A0005-001）比溫度比較用的兩支明顯不穩，合在同一個 Promise.all 時，
+ * 只要其中一支慢（最長可能等到 fetchDataset 的 15 秒逾時），整頁溫度資料也會被拖著一起卡住、
+ * 畫面卡在「載入氣候資料中…」出不來。拆開後主要內容（溫度）不受這兩支拖累，前端也用
+ * server:false 背景抓取、抓到才補上對應區塊，不阻塞頁面其餘部分。
+ */
+export interface ClimateExtras {
+  monthlyPrecipitationNormals: ClimateMonthPrecipitationNormal[]
   /** 今年至今每日雨量（跟著 C-B0025-001 上游一起變動，通常涵蓋 1/1 到最近有資料的一天） */
   dailyRainfall: ClimateDailyRainfall[]
   /** 當日紫外線指數最大值（O-A0005-001）；跟 /observation 的即時 UV 是不同角度——這是「今天

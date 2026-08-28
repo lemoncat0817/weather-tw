@@ -110,14 +110,50 @@ export interface TownSummary {
 // 觀測資料
 // ---------------------------------------------------------------------------
 
+/**
+ * 雨量站（O-A0002-001）專屬的累積雨量各時距快照；氣象站（O-A0001/O-A0003）只回報「現在」
+ * 這一個瞬時值，沒有這組時距欄位，所以在氣象站永遠是 null。
+ */
+export interface PrecipitationAccumulation {
+  past10min: number | null
+  past1hr: number | null
+  past3hr: number | null
+  past6hr: number | null
+  past12hr: number | null
+  past24hr: number | null
+  past2days: number | null
+  past3days: number | null
+}
+
+/** 陣風：觀測時窗內出現的瞬間最大值，跟「現在」風速是兩回事 */
+export interface PeakGust {
+  speed: number | null
+  direction: number | null
+  time: string | null
+}
+
+/** 當日（自 00:00 起算）觀測到的最高/最低溫及發生時刻 */
+export interface DailyExtreme {
+  highTemperature: number | null
+  highTime: string | null
+  lowTemperature: number | null
+  lowTime: string | null
+}
+
 export interface ObservationReading {
   temperature: number | null
   relativeHumidity: number | null
   precipitation: number | null
+  precipitationAccumulation: PrecipitationAccumulation | null
   windSpeed: number | null
   windDirection: number | null
   airPressure: number | null
   uvIndex: number | null
+  peakGust: PeakGust | null
+  dailyExtreme: DailyExtreme | null
+  weatherDescription: string | null
+  visibility: string | null
+  sunshineDuration: number | null
 }
 
 export interface Observation {
@@ -125,6 +161,10 @@ export interface Observation {
   stationName: string
   county: string
   town: string
+  countyCode: string
+  townCode: string
+  /** 測站海拔（公尺），山區測站的溫度差異多半能由此解釋 */
+  altitude: number | null
   coordinates: Coordinates
   obsTime: string
   reading: ObservationReading

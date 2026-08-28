@@ -328,14 +328,35 @@ export interface ClimateDailySummary {
   minTemperature: number
 }
 
+/** 某月的雨量氣候常態（C-B0027-001 的 Precipitation 類別，跟溫度是同一份常態資料集裡的不同欄位） */
+export interface ClimateMonthPrecipitationNormal {
+  month: number // 1-12
+  accumulationMm: number
+}
+
+/** 單日雨量（C-B0025-001）。trace（CWA 原始值 "T"，代表有下但不足 0.05mm）在這裡算成 0，
+ *  不是 null——這份資料只用來畫累積雨量，trace 對總量的影響本來就微乎其微，比起讓呼叫端
+ *  另外處理 null 造成累積和斷掉，算成 0 更單純；如果未來要做「降雨日數」這種在意「有沒有下」
+ *  的統計，trace 就不能這樣算，需要另外處理。 */
+export interface ClimateDailyRainfall {
+  date: string
+  precipitationMm: number
+}
+
 export interface ClimateComparison {
   stationId: string
   stationName: string
   /** 氣候平均值的基準區間，例如 [1991, 2020] */
   normalYears: [number, number]
   monthlyNormals: ClimateMonthNormal[]
+  monthlyPrecipitationNormals: ClimateMonthPrecipitationNormal[]
   recentHourly: ClimateHourlyReading[]
   yesterday: ClimateDailySummary | null
+  /** 今年至今每日雨量（跟著 C-B0025-001 上游一起變動，通常涵蓋 1/1 到最近有資料的一天） */
+  dailyRainfall: ClimateDailyRainfall[]
+  /** 當日紫外線指數最大值（O-A0005-001）；跟 /observation 的即時 UV 是不同角度——這是「今天
+   *  峰值」，即時 UV 是「現在這一刻」。上游沒有資料或請求失敗時為 null。 */
+  todayMaxUvIndex: number | null
 }
 
 // ---------------------------------------------------------------------------

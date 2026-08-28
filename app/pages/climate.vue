@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import type { ClimateComparison } from '#shared/types'
-import { buildAnnualNormalOption, buildRecentVsNormalOption } from '@/utils/climateChart'
+import { buildAnnualNormalOption, buildCumulativeRainfallOption, buildRecentVsNormalOption } from '@/utils/climateChart'
 import { CLIMATE_STATIONS, DEFAULT_CLIMATE_STATION_ID, isClimateStationId } from '@/utils/climateStations'
 import { currentTaipeiMonth } from '@/utils/formatDate'
 import { temperatureColor } from '@/utils/colorScales'
@@ -38,6 +38,11 @@ const annualOption = computed(() =>
 )
 const recentOption = computed(() =>
   climate.value && currentNormal.value ? buildRecentVsNormalOption(climate.value.recentHourly, currentNormal.value) : null
+)
+const rainfallOption = computed(() =>
+  climate.value && climate.value.dailyRainfall.length > 0
+    ? buildCumulativeRainfallOption(climate.value.dailyRainfall, climate.value.monthlyPrecipitationNormals)
+    : null
 )
 
 const delta = computed(() => {
@@ -85,6 +90,10 @@ const deltaLabel = computed(() => {
           <p>{{ currentMonth }} 月常態平均 {{ currentNormal.meanTemperature }}°（{{ currentNormal.minTemperature }}°–{{ currentNormal.maxTemperature }}°）</p>
           <p class="mt-1 font-medium" :style="{ color: deltaColor }">{{ deltaLabel }}</p>
         </div>
+        <div v-if="climate.todayMaxUvIndex !== null" class="ml-auto text-right">
+          <p class="text-sm text-text-muted">今日紫外線峰值</p>
+          <p class="tabular-nums text-2xl text-text-primary">{{ climate.todayMaxUvIndex }}</p>
+        </div>
       </section>
 
       <!-- 近期逐時 vs 當月常態 -->
@@ -97,6 +106,12 @@ const deltaLabel = computed(() => {
       <section v-if="annualOption" class="rounded-lg bg-surface-1 p-4">
         <h2 class="mb-2 text-sm font-medium text-text-secondary">全年氣候常態（實心點為當月）</h2>
         <ChartsBaseChart :option="annualOption" height="320px" />
+      </section>
+
+      <!-- 今年累積雨量 vs 氣候平均累積 -->
+      <section v-if="rainfallOption" class="rounded-lg bg-surface-1 p-4">
+        <h2 class="mb-2 text-sm font-medium text-text-secondary">今年累積雨量 vs 氣候平均累積</h2>
+        <ChartsBaseChart :option="rainfallOption" height="280px" />
       </section>
     </template>
   </div>

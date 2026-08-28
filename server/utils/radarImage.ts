@@ -1,11 +1,15 @@
+import { createHash } from 'node:crypto'
 import type { RadarFrame } from '#shared/types'
 
 export const RADAR_FRAMES_STORAGE_KEY = 'radar:frames.json'
-export const RADAR_IMAGE_STORAGE_KEY = 'radar:image.bin'
-export const RADAR_IMAGE_META_KEY = 'radar:image-meta.json'
 
-interface RadarImageMeta {
-  time: string
+/**
+ * 每個影格各自存一張 PNG，用時間戳雜湊當 key（時間字串含 `:` `+`，不適合直接當檔名）。
+ * 早期版本所有影格共用同一個 key，新影格進來就把舊的覆蓋掉——結果 frames.json 裡
+ * 6 個不同時間的影格，imageUrl 全部指向同一張圖，動畫播放起來完全靜止不動。
+ */
+function radarImageKey(time: string): string {
+  return `radar:image:${createHash('sha1').update(time).digest('hex')}.bin`
 }
 
 function toUint8Array(raw: unknown): Uint8Array | null {
@@ -15,42 +19,42 @@ function toUint8Array(raw: unknown): Uint8Array | null {
   return null
 }
 
-export async function readStoredRadarImage(): Promise<{ bytes: Uint8Array; time: string } | null> {
+export async function readStoredRadarImage(time: string): Promise<Uint8Array | null> {
   const storage = useStorage('cache')
-  const [meta, raw] = await Promise.all([
-    storage.getItem<RadarImageMeta>(RADAR_IMAGE_META_KEY),
-    storage.getItemRaw(RADAR_IMAGE_STORAGE_KEY)
-  ])
-  const bytes = toUint8Array(raw)
-  if (!meta?.time || !bytes || bytes.byteLength === 0) return null
-  return { bytes, time: meta.time }
+  const bytes = toUint8Array(await storage.getItemRaw(radarImageKey(time)))
+  return bytes && bytes.byteLength > 0 ? bytes : null
 }
 
 /**
- * 把最新一張雷達 PNG 抓進 storage。frames handler 每次刷新 metadata 時呼叫，
- * 讓後續的 `/api/radar/image` 只讀快取、不必再打 S3。
- * 時間沒變就跳過；下載失敗不往外丟，frames JSON 還是要能回。
+ * 把指定影格的 PNG 抓進 storage。frames handler 每次刷新 metadata 時對「新加入」的
+ * 影格呼叫一次，讓後續 `/api/radar/image?t=...` 只讀快取、不必再打 S3。
+ * 該影格已經存過就跳過；下載失敗不往外丟，frames JSON 還是要能回。
  */
 export async function persistRadarImage(frame: RadarFrame): Promise<void> {
   // 只抓上游 https URL；若 storage 裡誤放了同源代理路徑，避免伺服器自己打自己
   if (!frame.imageUrl.startsWith('https://')) return
   const storage = useStorage('cache')
-  const meta = await storage.getItem<RadarImageMeta>(RADAR_IMAGE_META_KEY)
-  if (meta?.time === frame.time) {
-    const existing = toUint8Array(await storage.getItemRaw(RADAR_IMAGE_STORAGE_KEY))
-    if (existing && existing.byteLength > 0) return
-  }
+  const key = radarImageKey(frame.time)
+  const existing = toUint8Array(await storage.getItemRaw(key))
+  if (existing && existing.byteLength > 0) return
 
   try {
     const buf = await $fetch<ArrayBuffer>(frame.imageUrl, {
       responseType: 'arrayBuffer',
       timeout: 15_000
     })
-    await Promise.all([
-      storage.setItemRaw(RADAR_IMAGE_STORAGE_KEY, new Uint8Array(buf)),
-      storage.setItem(RADAR_IMAGE_META_KEY, { time: frame.time } satisfies RadarImageMeta)
-    ])
+    await storage.setItemRaw(key, new Uint8Array(buf))
   } catch {
     // 影像抓取失敗時留下舊檔（若有）；image handler 會再試一次
   }
+}
+
+/**
+ * 把被滾動視窗（MAX_FRAMES）擠出去的舊影格 PNG 一併刪掉，避免 KV 裡越積越多、
+ * 徒增 storage 用量——動畫最多同時只需要視窗內那幾張。
+ */
+export async function pruneRadarImages(evicted: RadarFrame[]): Promise<void> {
+  if (evicted.length === 0) return
+  const storage = useStorage('cache')
+  await Promise.all(evicted.map((frame) => storage.removeItem(radarImageKey(frame.time))))
 }

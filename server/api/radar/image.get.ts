@@ -7,29 +7,31 @@ import type { H3Event } from 'h3'
  * 不要直連 CWA S3：那是 3600×3600 的跨域圖，MapLibre 還得等底圖 load 完才開始抓，
  * 實測進 /map 後影像請求要到 ~2s 才發出，偶發 Failed to fetch。
  *
- * 圖檔本體由 frames handler 刷新時寫進 storage；這裡優先讀快取，miss 再回源。
- * `?t=` 只給瀏覽器當 cache-buster，不參與快取鍵。
+ * `?t=` 是影格時間戳，用來從滾動視窗裡挑出對應那一張——不是單純的 cache-buster。
+ * 每個影格各自存一張 PNG（見 radarImage.ts），這裡優先讀快取，miss 再回源抓那一張。
+ * 沒帶 `t`、或帶的時間點不在目前視窗內，就退回視窗裡最新的一張。
  */
 export default defineEventHandler(async (event) => {
-  const cached = await readStoredRadarImage()
-  if (cached) {
-    return sendRadarPng(event, cached.bytes)
-  }
+  const query = getQuery(event)
+  const requestedTime = typeof query.t === 'string' ? query.t : undefined
 
   const storage = useStorage('cache')
   const frames = (await storage.getItem<RadarFrame[]>(RADAR_FRAMES_STORAGE_KEY)) ?? []
-  let frame = frames.at(-1)
+  let frame = (requestedTime ? frames.find((f) => f.time === requestedTime) : undefined) ?? frames.at(-1)
   if (!frame?.imageUrl.startsWith('https://')) {
     const raw = await fetchFileApiDataset('O-A0058-005')
     frame = normalizeRadarFrame(raw as never)
   }
 
-  await persistRadarImage(frame)
-  const stored = await readStoredRadarImage()
-  if (!stored) {
+  let bytes = await readStoredRadarImage(frame.time)
+  if (!bytes) {
+    await persistRadarImage(frame)
+    bytes = await readStoredRadarImage(frame.time)
+  }
+  if (!bytes) {
     throw createError({ statusCode: 502, message: '無法取得雷達回波影像' })
   }
-  return sendRadarPng(event, stored.bytes)
+  return sendRadarPng(event, bytes)
 })
 
 function sendRadarPng(event: H3Event, bytes: Uint8Array) {

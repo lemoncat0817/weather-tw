@@ -87,19 +87,31 @@ function toMonthlyNormals(monthly: CwaMonthlyTempStat[]): ClimateMonthNormal[] {
     .sort((a, b) => a.month - b.month)
 }
 
+// 高雄現站 467441 是 2022 從舊前鎮站 467440 遷到楠梓的；C-B0027-001 的 1991-2020 月平均
+// 仍掛在舊站號上（CWA 氣候月平均頁自己也註明「高雄為舊高雄站(467440)之氣候平均值」）。
+// 近期觀測 C-B0024-001 則只有現站。同一站號打兩支會兩邊都空、整頁 404。
+const NORMAL_STATION_ID_BY_CURRENT: Readonly<Record<string, string>> = {
+  '467441': '467440'
+}
+
+export function climateNormalStationId(stationId: string): string {
+  return NORMAL_STATION_ID_BY_CURRENT[stationId] ?? stationId
+}
+
 export function normalizeClimateComparison(recentRaw: CwaRecentResponse, normalRaw: CwaNormalResponse): ClimateComparison | null {
-  const recentLoc = recentRaw.records.location[0]
-  const normalLoc = normalRaw.records.data.surfaceObs.location[0]
+  const recentLoc = recentRaw.records?.location?.[0]
+  const normalLoc = normalRaw.records?.data?.surfaceObs?.location?.[0]
   if (!recentLoc || !normalLoc) return null
 
-  const airTemp = normalLoc.stationObsStatistics.AirTemperature
+  const airTemp = normalLoc.stationObsStatistics?.AirTemperature
+  if (!airTemp) return null
 
   return {
     stationId: recentLoc.station.StationID,
     stationName: recentLoc.station.StationName,
     normalYears: [airTemp.StationStartYear, airTemp.StationEndYear],
     monthlyNormals: toMonthlyNormals(airTemp.monthly),
-    recentHourly: toHourly(recentLoc.stationObsTimes.stationObsTime ?? []),
+    recentHourly: toHourly(recentLoc.stationObsTimes?.stationObsTime ?? []),
     yesterday: toYesterday(recentLoc.stationObsStatistics?.AirTemperature?.daily?.[0])
   }
 }

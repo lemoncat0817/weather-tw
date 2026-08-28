@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import type { ClimateComparison } from '#shared/types'
 import { buildAnnualNormalOption, buildRecentVsNormalOption } from '@/utils/climateChart'
-import { CLIMATE_STATIONS, DEFAULT_CLIMATE_STATION_ID } from '@/utils/climateStations'
+import { CLIMATE_STATIONS, DEFAULT_CLIMATE_STATION_ID, isClimateStationId } from '@/utils/climateStations'
 import { currentTaipeiMonth } from '@/utils/formatDate'
 import { temperatureColor } from '@/utils/colorScales'
 
@@ -16,8 +16,15 @@ useSeoMeta({
 // 這剛好等於 hydration 那一輪的 render，若跟 SSR 用的預設值不同就會觸發 hydration mismatch——
 // 跟這個 session 修過好幾次的問題是同一類，這次用 initOnMounted 把讀取延到 onMounted 之後，
 // hydration 那一輪一律用預設值，之後才在一次額外的 reactive 更新裡切換成存好的值
-const stationId = useLocalStorage('climate-station-id', DEFAULT_CLIMATE_STATION_ID, { initOnMounted: true })
-const { data: climate } = await useFetch<ClimateComparison>(() => `/api/climate/${stationId.value}`, {
+const storedStationId = useLocalStorage('climate-station-id', DEFAULT_CLIMATE_STATION_ID, { initOnMounted: true })
+// localStorage 可能還留著已從選單拿掉的站號（古坑、田中…）；getter 直接退回預設，避免再打一發 404
+const stationId = computed({
+  get: () => (isClimateStationId(storedStationId.value) ? storedStationId.value : DEFAULT_CLIMATE_STATION_ID),
+  set: (id) => {
+    storedStationId.value = id
+  }
+})
+const { data: climate, status, error } = await useFetch<ClimateComparison>(() => `/api/climate/${stationId.value}`, {
   key: () => `climate-${stationId.value}`
 })
 
@@ -61,7 +68,13 @@ const deltaLabel = computed(() => {
       </span>
     </div>
 
-    <template v-if="climate">
+    <div v-if="status === 'pending'" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">載入氣候資料中…</div>
+
+    <div v-else-if="error || !climate" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      找不到這個測站的氣候資料。
+    </div>
+
+    <template v-else>
       <!-- 昨日 vs 常態摘要 -->
       <section v-if="climate.yesterday && currentNormal" class="flex flex-wrap items-center gap-6 rounded-lg bg-surface-1 p-6">
         <div>
@@ -86,7 +99,5 @@ const deltaLabel = computed(() => {
         <ChartsBaseChart :option="annualOption" height="320px" />
       </section>
     </template>
-
-    <div v-else class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">載入氣候資料中…</div>
   </div>
 </template>

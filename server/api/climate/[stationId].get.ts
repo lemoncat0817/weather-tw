@@ -1,4 +1,4 @@
-import { normalizeClimateComparison } from '../../utils/normalize/climate'
+import { climateNormalStationId, normalizeClimateComparison } from '../../utils/normalize/climate'
 import type { ClimateComparison } from '#shared/types'
 
 /**
@@ -18,7 +18,7 @@ export default defineCachedEventHandler(
 
     const [recent, normal] = await Promise.all([
       fetchDataset('C-B0024-001', { StationID: stationId }),
-      fetchDataset('C-B0027-001', { StationID: stationId })
+      fetchDataset('C-B0027-001', { StationID: climateNormalStationId(stationId) })
     ])
 
     const comparison = normalizeClimateComparison(recent as never, normal as never)

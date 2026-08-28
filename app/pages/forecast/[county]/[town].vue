@@ -30,7 +30,11 @@ useSeoMeta({
   description: () => `${county.value}${town.value}未來 7 天天氣預報，含逐時溫度、降雨機率、風速與濕度。`
 })
 
-const meteogramOption = computed(() => (forecast.value ? buildMeteogramOption(forecast.value.hourly) : null))
+const meteogramOption = computed(() =>
+  forecast.value
+    ? buildMeteogramOption(forecast.value.hourly, { sunrise: forecast.value.sunrise, sunset: forecast.value.sunset })
+    : null
+)
 
 // 目前這個時間點最接近的一筆逐時資料，當作「現況」摘要卡
 const current = computed(() => {

@@ -183,6 +183,14 @@ export interface RadarFrame {
 }
 
 // ---------------------------------------------------------------------------
+// 衛星雲圖
+// ---------------------------------------------------------------------------
+
+/** 跟 RadarFrame 形狀完全相同（時間 + 影像網址 + 經緯度範圍），衛星圖層另外命名只是語意上
+ *  跟雷達分開，不代表結構有差異——兩者都是「單張定期更新的疊圖影像」這同一種東西。 */
+export type ImageOverlayFrame = RadarFrame
+
+// ---------------------------------------------------------------------------
 // 颱風
 // ---------------------------------------------------------------------------
 
@@ -262,6 +270,20 @@ export interface EarthquakeShakingArea {
   intensity: string
 }
 
+/** 測站級實測值（E-A0015-001／E-A0016-001 的 EqStation），比縣市彙總的 EarthquakeShakingArea
+ *  精細——位置是實際測站座標，不是行政區代表點。 */
+export interface EarthquakeStation {
+  stationId: string
+  stationName: string
+  position: Coordinates
+  seismicIntensity: string
+  epicenterDistance: number
+  /** 尖峰地表加速度（gal）；部分測站（多半是較舊、非強震儀站）沒有這組數值 */
+  pga: number | null
+  /** 尖峰地表速度（kine）；同上，可能缺 */
+  pgv: number | null
+}
+
 export interface Earthquake {
   id: string
   originTime: string
@@ -274,6 +296,7 @@ export interface Earthquake {
   epicenterDescription: string
   maxIntensity: string
   shakingAreas: EarthquakeShakingArea[]
+  stations: EarthquakeStation[]
   shakemapImageUrl: string | null
 }
 

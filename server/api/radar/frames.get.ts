@@ -20,8 +20,13 @@ export default defineCachedEventHandler(
     const existing = (await storage.getItem<RadarFrame[]>(RADAR_FRAMES_STORAGE_KEY)) ?? []
 
     const frames = existing.some((f) => f.time === latest.time) ? existing : [...existing, latest].slice(-MAX_FRAMES)
+    const evicted = existing.filter((f) => !frames.some((kept) => kept.time === f.time))
 
-    await Promise.all([storage.setItem(RADAR_FRAMES_STORAGE_KEY, frames), persistRadarImage(latest)])
+    await Promise.all([
+      storage.setItem(RADAR_FRAMES_STORAGE_KEY, frames),
+      persistRadarImage(latest),
+      pruneRadarImages(evicted)
+    ])
     return frames.map(toProxiedRadarFrame)
   },
   { maxAge: 60 * 5, name: 'radar-frames' }

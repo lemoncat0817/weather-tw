@@ -2,7 +2,7 @@
 
 台灣天氣資訊平台 —— 即時預報、雷達回波、颱風路徑與地震資訊，資料全部來自中央氣象署開放資料平台（CWA Open Data）。
 
-[![Deploy](https://github.com/lemoncat0817/Vue3-WeatherWeb/actions/workflows/deploy.yml/badge.svg)](https://github.com/lemoncat0817/Vue3-WeatherWeb/actions/workflows/deploy.yml)
+[![Deploy](https://github.com/lemoncat0817/weather-tw/actions/workflows/deploy.yml/badge.svg)](https://github.com/lemoncat0817/weather-tw/actions/workflows/deploy.yml)
 [![Nuxt](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt&logoColor=white)](https://nuxt.com)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 

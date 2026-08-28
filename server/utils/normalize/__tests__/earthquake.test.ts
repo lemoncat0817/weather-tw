@@ -62,3 +62,75 @@ describe('normalizeEarthquakes', () => {
     })
   })
 })
+
+// 節錄自 E-A0016-001 實際回應（屏東縣滿州地震）：第二筆測站（池上／ECS 這類舊站）
+// 刻意省略 pga/pgv，只有 SeismicIntensity——測站級資料裡這是常態，不是缺陷
+const RAW_WITH_STATIONS = {
+  records: {
+    Earthquake: [
+      {
+        EarthquakeNo: 115000,
+        ReportContent: '08/28-10:20臺灣西南部海域發生規模4.4有感地震，最大震度屏東縣滿州2級。',
+        ReportColor: '綠色',
+        EarthquakeInfo: {
+          OriginTime: '2026-08-28T10:20:56+08:00',
+          FocalDepth: 50.7,
+          Epicenter: { Location: '高雄市政府南方 66.3 公里', EpicenterLatitude: 22.03, EpicenterLongitude: 120.38 },
+          EarthquakeMagnitude: { MagnitudeType: '芮氏規模', MagnitudeValue: 4.4 }
+        },
+        Intensity: {
+          ShakingArea: [
+            {
+              AreaDesc: '屏東縣地區',
+              CountyName: '屏東縣',
+              AreaIntensity: '2級',
+              EqStation: [
+                {
+                  pga: { unit: 'gal', EWComponent: 3.05, NSComponent: 2.38, VComponent: 1.69, IntScaleValue: 3.26 },
+                  pgv: { unit: 'kine', IntScaleValue: 0.14 },
+                  StationName: '滿州',
+                  StationID: 'SMS',
+                  EpicenterDistance: 46.7,
+                  SeismicIntensity: '2級',
+                  StationLatitude: 22.021,
+                  StationLongitude: 120.837
+                },
+                {
+                  // 無 pga/pgv 的測站（實測存在，不是每個測站都有強震儀資料）
+                  StationName: '池上',
+                  StationID: 'ECS',
+                  EpicenterDistance: 33.59,
+                  SeismicIntensity: '1級',
+                  StationLatitude: 23.095,
+                  StationLongitude: 121.24
+                }
+              ]
+            },
+            // 彙總列：EqStation 恆為空陣列，不該貢獻任何測站
+            { AreaDesc: '最大震度2級地區', CountyName: '屏東縣', AreaIntensity: '2級', EqStation: [] }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+describe('normalizeEarthquakes — 測站級資料（stations）', () => {
+  it('攤平所有明細列的 EqStation，彙總列的空陣列不貢獻任何測站', () => {
+    const [eq] = normalizeEarthquakes(RAW_WITH_STATIONS as never)
+    expect(eq!.stations).toHaveLength(2)
+    expect(eq!.stations.map((s) => s.stationId)).toEqual(['SMS', 'ECS'])
+  })
+
+  it('有 pga/pgv 的測站正確讀出 IntScaleValue', () => {
+    const [eq] = normalizeEarthquakes(RAW_WITH_STATIONS as never)
+    const manzhou = eq!.stations.find((s) => s.stationId === 'SMS')
+    expect(manzhou).toMatchObject({ pga: 3.26, pgv: 0.14, seismicIntensity: '2級', epicenterDistance: 46.7 })
+  })
+
+  it('沒有 pga/pgv 的測站回傳 null，不是拋例外或 undefined', () => {
+    const [eq] = normalizeEarthquakes(RAW_WITH_STATIONS as never)
+    const chishang = eq!.stations.find((s) => s.stationId === 'ECS')
+    expect(chishang).toMatchObject({ pga: null, pgv: null, seismicIntensity: '1級' })
+  })
+})

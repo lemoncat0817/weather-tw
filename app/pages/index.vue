@@ -56,7 +56,13 @@ const current = computed(() => {
 })
 
 const compactMeteogram = computed(() =>
-  forecast.value ? buildMeteogramOption(forecast.value.hourly.slice(0, 24), { compact: true }) : null
+  forecast.value
+    ? buildMeteogramOption(forecast.value.hourly.slice(0, 24), {
+        compact: true,
+        sunrise: forecast.value.sunrise,
+        sunset: forecast.value.sunset
+      })
+    : null
 )
 
 const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2 === 0).slice(0, 7) ?? [])

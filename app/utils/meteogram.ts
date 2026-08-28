@@ -2,7 +2,7 @@ import type { EChartsOption, SeriesOption, CustomSeriesRenderItemParams, CustomS
 import type { TownForecastHour } from '#shared/types'
 import { CATEGORICAL, precipitationColor } from './colorScales'
 import { windBarbGlyph } from './windBarb'
-import { isDaytimeHour } from './weatherCode'
+import { formatTaipeiTime } from './formatDate'
 
 const WIND_COLOR = CATEGORICAL[2] // aqua，跟溫度（blue）、降水（blue 序列）區隔開，給風一個獨立識別色
 const TEMP_COLOR = CATEGORICAL[0]
@@ -28,18 +28,32 @@ function windBarbRenderItem(_params: CustomSeriesRenderItemParams, api: CustomSe
   }
 }
 
-/** 依小時陣列算出連續的晚上區段（用陣列索引表示，直接對應 category 軸的 label），供 markArea 畫晝夜底紋 */
-function nightSegmentsByIndex(times: string[]): Array<[number, number]> {
+/**
+ * 依小時陣列算出連續的晚上區段（用陣列索引表示，直接對應 category 軸的 label），供 markArea
+ * 畫晝夜底紋。用實際日出日沒時刻（HH:MM 字串比較，逐時預報最多橫跨 3 天，時刻本身一天只飄移
+ * 一兩分鐘，同一組時刻套用到全部日期已經足夠準——不像固定 6:00-18:00 這種一年到頭都套用同一組，
+ * 冬夏天實際日出日沒時刻在台灣可以差到一個多小時。sunrise/sunset 缺席時退回這組概略預設值。
+ *
+ * 用 formatTaipeiTime 而不是 new Date().getHours()：後者是「執行環境的本地時區」，這個函式
+ * 在 SSR 也會被呼叫（.vue 頁面的 computed 在伺服器端就會求值一次，不是只在瀏覽器端執行），
+ * Nitro 若跑在 UTC 容器裡，getHours() 算出的畫夜分界會整批位移 8 小時。
+ */
+function nightSegmentsByIndex(times: string[], sunriseHHMM: string, sunsetHHMM: string): Array<[number, number]> {
+  const isNight = (iso: string) => {
+    const hm = formatTaipeiTime(iso)
+    return hm < sunriseHHMM || hm >= sunsetHHMM
+  }
+
   const segments: Array<[number, number]> = []
   let segStart = 0
-  let segIsNight = times[0] ? !isDaytimeHour(new Date(times[0])) : false
+  let segIsNight = times[0] ? isNight(times[0]) : false
 
   for (let i = 1; i < times.length; i++) {
-    const isNight = !isDaytimeHour(new Date(times[i]!))
-    if (isNight !== segIsNight) {
+    const night = isNight(times[i]!)
+    if (night !== segIsNight) {
       if (segIsNight) segments.push([segStart, i - 1])
       segStart = i
-      segIsNight = isNight
+      segIsNight = night
     }
   }
   if (segIsNight) segments.push([segStart, times.length - 1])
@@ -49,6 +63,9 @@ function nightSegmentsByIndex(times: string[]): Array<[number, number]> {
 export interface MeteogramOptions {
   /** 精簡模式（首頁用）：只留溫度＋降水兩個 grid，不畫風標／濕度，圖也矮一些 */
   compact?: boolean
+  /** 當天日出／日沒時刻（ISO，含時區），用來畫夜間陰影帶；缺席時退回 06:00-18:00 概略預設值 */
+  sunrise?: string
+  sunset?: string
 }
 
 /**
@@ -58,7 +75,9 @@ export interface MeteogramOptions {
  */
 export function buildMeteogramOption(hours: TownForecastHour[], options: MeteogramOptions = {}): EChartsOption {
   const times = hours.map((h) => h.time)
-  const labels = times.map((t) => `${new Date(t).getHours()}:00`)
+  // formatTaipeiTime，不是 new Date(t).getHours()：後者是執行環境本地時區，這個 option 建構式
+  // 在 SSR 也會求值一次，Nitro 若跑在 UTC 容器裡，軸上的時刻標籤會整批位移 8 小時
+  const labels = times.map((t) => formatTaipeiTime(t))
   const compact = options.compact ?? false
 
   const grids: EChartsOption['grid'] = compact
@@ -102,10 +121,12 @@ export function buildMeteogramOption(hours: TownForecastHour[], options: Meteogr
   })
 
   // 晚上時段的底紋，畫在溫度那個 grid 上
+  const sunriseHHMM = options.sunrise ? formatTaipeiTime(options.sunrise) : '06:00'
+  const sunsetHHMM = options.sunset ? formatTaipeiTime(options.sunset) : '18:00'
   const nightMarkArea: NonNullable<SeriesOption['markArea']> = {
     silent: true,
     itemStyle: { color: 'rgba(148, 163, 184, 0.06)' },
-    data: nightSegmentsByIndex(times).map(
+    data: nightSegmentsByIndex(times, sunriseHHMM, sunsetHHMM).map(
       ([startIdx, endIdx]) => [{ xAxis: labels[startIdx] }, { xAxis: labels[endIdx] }] as const
     )
   }

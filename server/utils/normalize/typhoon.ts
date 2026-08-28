@@ -3,6 +3,7 @@ import type {
   GeoLineString,
   GeoPolygon,
   Typhoon,
+  TyphoonAdvisory,
   TyphoonFixPoint,
   TyphoonForecastPoint,
   TyphoonQuadrantRadii
@@ -144,4 +145,59 @@ function normalizeOne(tc: CwaTropicalCyclone): Typhoon {
 
 export function normalizeTyphoons(raw: CwaTyphoonResponse): Typhoon[] {
   return (raw.records.TropicalCyclones.TropicalCyclone ?? []).map(normalizeOne)
+}
+
+// ---------------------------------------------------------------------------
+// W-C0034-001：颱風警報公告本身（報數、海上/陸上類別、CWA 原文章節），跟上面的路徑幾何互補
+// ---------------------------------------------------------------------------
+
+interface CwaFreeTextSection {
+  title: string
+  value: string
+}
+/** typhoon-info.section 陣列裡混雜著純文字條目（title+value）跟一個特殊條目（"颱風資訊"，
+ *  沒有 value，改用 typhoon_name/cwa_typhoon_name 等額外欄位），用 optional 欄位涵蓋兩種形狀 */
+interface CwaTyphoonInfoEntry {
+  title: string
+  value?: string
+  typhoon_name?: string
+  cwa_typhoon_name?: string
+}
+interface CwaCapAdvisoryInfo {
+  headline: string
+  severity?: string
+  effective: string
+  expires: string
+  description?: {
+    section?: CwaFreeTextSection[]
+    'typhoon-info'?: Array<{ section: CwaTyphoonInfoEntry[] }>
+  }
+}
+interface CwaTyphoonAdvisoryResponse {
+  records: { info?: CwaCapAdvisoryInfo[] }
+}
+
+/** CWA 在沒有現行警報時仍會回傳最後一次發布的舊資料（跟 W-C0033-003/004/005 同一套機制），
+ *  用 expires 是否已過去判斷是否還算現行，過期一律濾掉。`now` 參數只為了讓測試能固定時間點。 */
+export function normalizeTyphoonAdvisories(raw: CwaTyphoonAdvisoryResponse, now: Date = new Date()): TyphoonAdvisory[] {
+  return (raw.records.info ?? [])
+    .filter((info) => new Date(info.expires).getTime() > now.getTime())
+    .map((info) => {
+      const entries = info.description?.['typhoon-info']?.[0]?.section ?? []
+      const byTitle = new Map(entries.map((e) => [e.title, e]))
+      const typhoonInfo = byTitle.get('颱風資訊')
+
+      return {
+        headline: info.headline,
+        category: byTitle.get('警報類別')?.value ?? '',
+        bulletinNumber: byTitle.get('警報報數')?.value ?? '',
+        typhoonNo: byTitle.get('颱風編號')?.value ?? '',
+        typhoonName: typhoonInfo?.typhoon_name ?? '',
+        typhoonNameZh: typhoonInfo?.cwa_typhoon_name ?? '',
+        severity: (info.severity as TyphoonAdvisory['severity']) ?? 'Minor',
+        effective: info.effective,
+        expires: info.expires,
+        sections: info.description?.section ?? []
+      }
+    })
 }

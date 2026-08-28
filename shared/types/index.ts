@@ -417,3 +417,55 @@ export interface HeatInjuryTownForecast {
   coordinates: Coordinates
   readings: HeatInjuryReading[]
 }
+
+// ---------------------------------------------------------------------------
+// 海象（浮標／潮位站觀測 + 潮汐預報）
+// ---------------------------------------------------------------------------
+
+export interface OceanReading {
+  time: string
+  tideHeight: number | null
+  tideLevel: string | null
+  waveHeight: number | null
+  waveDirection: number | null
+  wavePeriod: number | null
+  seaTemperature: number | null
+  windSpeed: number | null
+  windDirection: number | null
+}
+
+/** 單一浮標／潮位站 48 小時觀測（O-B0075-001）。CWA 沒有提供這些站的中文站名或座標對照表，
+ *  只有站號——見 app/utils/oceanBuoys.ts 開頭的說明，不在這裡假裝有更多資訊。 */
+export interface OceanBuoyObservation {
+  stationId: string
+  readings: OceanReading[]
+}
+
+export interface TideLocation {
+  id: string
+  name: string
+  coordinates: Coordinates
+}
+
+export interface TideEvent {
+  time: string
+  /** '滿潮' | '乾潮' */
+  type: string
+  /** 相對於海圖基準面的潮高（公分）——這個基準面下潮高恆為正值，比其他基準面更符合一般直覺 */
+  heightCm: number
+}
+
+export interface TideDay {
+  date: string
+  lunarDate: string
+  /** '大潮' | '中潮' | '小潮' */
+  tideRange: string
+  events: TideEvent[]
+}
+
+/** 單一地點未來 1 個月潮汐預報（F-A0021-001）。地點不限鄉鎮，也包含漁港、海水浴場、潛點等
+ *  CWA 自訂的興趣點，見 TideLocation.id 對應的 LocationId 格式（純數字＝行政區，其餘為代碼字首）。 */
+export interface TideForecast {
+  location: TideLocation
+  days: TideDay[]
+}

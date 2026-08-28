@@ -1,4 +1,4 @@
-import type { CountyWarning, WeatherHazard } from '#shared/types'
+import type { CapAdvisory, CountyWarning, WarningBulletin, WeatherHazard } from '#shared/types'
 
 interface CwaHazardInfo {
   phenomena: string
@@ -39,4 +39,81 @@ export function normalizeCountyWarnings(raw: CwaWarningResponse): CountyWarning[
     }))
     return { county: loc.locationName, hazards }
   })
+}
+
+// ---------------------------------------------------------------------------
+// W-C0033-002：各別天氣警特報之內容及所影響之區域（目前所有作用中特報公告的全文）
+// ---------------------------------------------------------------------------
+
+interface CwaBulletinHazardInfo {
+  phenomena: string
+  significance: string
+  affectedAreas?: { location?: Array<{ locationName: string }> }
+}
+interface CwaBulletinRecord {
+  datasetInfo: {
+    datasetDescription: string
+    validTime?: { startTime?: string; endTime?: string }
+    issueTime?: string
+  }
+  contents?: { content?: { contentText?: string } }
+  hazardConditions?: { hazards?: { hazard?: Array<{ info: CwaBulletinHazardInfo }> } }
+}
+interface CwaBulletinResponse {
+  records: { record?: CwaBulletinRecord[] }
+}
+
+export function normalizeWarningBulletins(raw: CwaBulletinResponse): WarningBulletin[] {
+  return (raw.records.record ?? []).map((r) => ({
+    title: r.datasetInfo.datasetDescription,
+    issueTime: toIsoWithTaipeiOffset(r.datasetInfo.issueTime) ?? '',
+    startTime: toIsoWithTaipeiOffset(r.datasetInfo.validTime?.startTime),
+    endTime: toIsoWithTaipeiOffset(r.datasetInfo.validTime?.endTime),
+    contentText: (r.contents?.content?.contentText ?? '').trim(),
+    hazards: (r.hazardConditions?.hazards?.hazard ?? []).map((h) => ({
+      phenomena: h.info.phenomena,
+      significance: h.info.significance,
+      affectedAreas: (h.info.affectedAreas?.location ?? []).map((l) => l.locationName)
+    }))
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// W-C0033-003/004/005：CAP 格式的豪雨／低溫／高溫特報（各自單一現象，含官方 severity/urgency/certainty）
+// ---------------------------------------------------------------------------
+
+interface CwaCapInfo {
+  event: string
+  headline: string
+  severity?: string
+  urgency?: string
+  certainty?: string
+  effective: string
+  expires: string
+  description: string
+  instruction?: string
+}
+interface CwaCapResponse {
+  records: { info?: CwaCapInfo[] }
+}
+
+/**
+ * CWA 在沒有現行特報時仍會回傳最後一次發布的舊資料，不會自動清空——實測 W-C0033-004
+ * （低溫特報）在盛夏 8 月仍回傳當年 3 月的舊資料。這裡用 expires 是否已過去判斷是否還算
+ * 「現行」，過期的一律濾掉，不會出現在回傳結果裡。`now` 參數只為了讓測試能固定時間點。
+ */
+export function normalizeCapAdvisories(raw: CwaCapResponse, now: Date = new Date()): CapAdvisory[] {
+  return (raw.records.info ?? [])
+    .filter((info) => new Date(info.expires).getTime() > now.getTime())
+    .map((info) => ({
+      event: info.event,
+      headline: info.headline,
+      severity: (info.severity as CapAdvisory['severity']) ?? 'Minor',
+      urgency: (info.urgency as CapAdvisory['urgency']) ?? 'Unknown',
+      certainty: (info.certainty as CapAdvisory['certainty']) ?? 'Unknown',
+      effective: info.effective,
+      expires: info.expires,
+      description: info.description.trim(),
+      instruction: info.instruction?.trim() ?? null
+    }))
 }

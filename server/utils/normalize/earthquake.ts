@@ -1,8 +1,18 @@
-import type { Earthquake, EarthquakeShakingArea } from '#shared/types'
+import type { Earthquake, EarthquakeShakingArea, EarthquakeStation } from '#shared/types'
 
+interface CwaPgaPgv {
+  IntScaleValue: number
+}
 interface CwaEqStation {
   StationName: string
+  StationID: string
+  StationLatitude: number
+  StationLongitude: number
   SeismicIntensity?: string
+  EpicenterDistance: number
+  // 部分測站（多半是較舊、非強震儀站）沒有這兩組欄位，只有 SeismicIntensity
+  pga?: CwaPgaPgv
+  pgv?: CwaPgaPgv
 }
 interface CwaShakingArea {
   AreaDesc: string
@@ -67,14 +77,28 @@ function maxIntensityOf(areas: CwaShakingArea[]): string {
  * 彙總列的 CountyName 就只會是那一個縣市名、不含頓號，跟明細列完全無法區分（已用單元測試鎖住
  * 這個邊界案例）。AreaDesc 開頭是否為「最大震度」才是兩種列真正、穩定的區別欄位。
  */
+function toStation(s: CwaEqStation): EarthquakeStation {
+  return {
+    stationId: s.StationID,
+    stationName: s.StationName,
+    position: { lat: s.StationLatitude, lon: s.StationLongitude },
+    seismicIntensity: s.SeismicIntensity ?? '',
+    epicenterDistance: s.EpicenterDistance,
+    pga: s.pga?.IntScaleValue ?? null,
+    pgv: s.pgv?.IntScaleValue ?? null
+  }
+}
+
 function normalizeOne(eq: CwaEarthquakeRecord): Earthquake {
-  const areas: EarthquakeShakingArea[] = (eq.Intensity.ShakingArea ?? [])
-    .filter((a) => !a.AreaDesc.startsWith('最大震度'))
-    .map((a) => ({
-      county: a.CountyName,
-      areaDescription: a.AreaDesc,
-      intensity: a.AreaIntensity
-    }))
+  // 彙總列（AreaDesc 開頭是「最大震度」）的 EqStation 恆為空陣列，但這裡還是先濾掉彙總列
+  // 再攤平測站，不依賴「恆為空」這個目前觀察到、但 CWA 沒書面保證的行為
+  const detailAreas = (eq.Intensity.ShakingArea ?? []).filter((a) => !a.AreaDesc.startsWith('最大震度'))
+  const areas: EarthquakeShakingArea[] = detailAreas.map((a) => ({
+    county: a.CountyName,
+    areaDescription: a.AreaDesc,
+    intensity: a.AreaIntensity
+  }))
+  const stations: EarthquakeStation[] = detailAreas.flatMap((a) => (a.EqStation ?? []).map(toStation))
 
   return {
     id: String(eq.EarthquakeNo),
@@ -91,6 +115,7 @@ function normalizeOne(eq: CwaEarthquakeRecord): Earthquake {
     epicenterDescription: eq.EarthquakeInfo.Epicenter.Location,
     maxIntensity: maxIntensityOf(eq.Intensity.ShakingArea ?? []),
     shakingAreas: areas,
+    stations,
     shakemapImageUrl: eq.ShakemapImageURI ?? null
   }
 }

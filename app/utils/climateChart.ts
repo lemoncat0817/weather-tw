@@ -1,5 +1,5 @@
 import type { EChartsOption, SeriesOption } from 'echarts'
-import type { ClimateHourlyReading, ClimateMonthNormal } from '#shared/types'
+import type { ClimateDailyRainfall, ClimateHourlyReading, ClimateMonthNormal, ClimateMonthPrecipitationNormal } from '#shared/types'
 import { CATEGORICAL } from './colorScales'
 import { formatTaipei } from './formatDate'
 
@@ -114,5 +114,71 @@ export function buildRecentVsNormalOption(hourly: ClimateHourlyReading[], normal
     yAxis: { type: 'value', name: '°C', axisLabel: { formatter: '{value}°' } },
     series,
     legend: { show: false }
+  }
+}
+
+/**
+ * 今年至今累積雨量 vs 氣候平均累積。氣候常態只有「月」解析度，這裡用「該月已過天數 ÷
+ * 該月總天數」按比例分攤到每一天再累加——是標準的月轉日分攤估算，不是幫 CWA 生出一條假的
+ * 逐日常態曲線（CWA 從未發布逐日雨量常態，這裡也沒有假裝它有）。
+ */
+export function buildCumulativeRainfallOption(daily: ClimateDailyRainfall[], normals: ClimateMonthPrecipitationNormal[]): EChartsOption {
+  const byMonth = new Map(normals.map((n) => [n.month, n.accumulationMm]))
+
+  const labels: string[] = []
+  const actual: number[] = []
+  const normalCumulative: number[] = []
+  let actualSum = 0
+  let normalSum = 0
+
+  for (const d of daily) {
+    // "YYYY-MM-DD" 純日期字串（無時間、無時區），用 UTC getter 讀年月日部分才不會被
+    // 執行環境時區拉到前一天或後一天
+    const date = new Date(d.date)
+    const year = date.getUTCFullYear()
+    const month = date.getUTCMonth() + 1
+    const day = date.getUTCDate()
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+    actualSum += d.precipitationMm
+    normalSum += (byMonth.get(month) ?? 0) / daysInMonth
+
+    labels.push(`${month}/${day}`)
+    actual.push(Math.round(actualSum * 10) / 10)
+    normalCumulative.push(Math.round(normalSum * 10) / 10)
+  }
+
+  const series: SeriesOption[] = [
+    {
+      name: '氣候平均累積',
+      type: 'line',
+      data: normalCumulative,
+      symbol: 'none',
+      lineStyle: { color: NORMAL_COLOR, width: 1.5, type: 'dashed' }
+    },
+    {
+      name: '今年累積雨量',
+      type: 'line',
+      data: actual,
+      symbol: 'none',
+      lineStyle: { color: ACTUAL_COLOR, width: 2 },
+      areaStyle: { color: ACTUAL_COLOR, opacity: 0.12 }
+    }
+  ]
+
+  return {
+    animation: false,
+    grid: { left: 48, right: 16, top: 16, bottom: 28 },
+    xAxis: { type: 'category', data: labels, boundaryGap: false, axisLabel: { interval: Math.ceil(labels.length / 10) } },
+    yAxis: { type: 'value', name: 'mm' },
+    series,
+    legend: { show: false },
+    tooltip: {
+      formatter: (params) => {
+        const arr = Array.isArray(params) ? params : [params]
+        const idx = arr[0]?.dataIndex ?? 0
+        return `${labels[idx]}<br/>今年累積 ${actual[idx]} mm<br/>氣候平均累積 ${normalCumulative[idx]} mm`
+      }
+    }
   }
 }

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
-import type { ClimateComparison } from '#shared/types'
-import { buildAnnualNormalOption, buildRecentVsNormalOption } from '@/utils/climateChart'
+import type { ClimateComparison, ClimateExtras } from '#shared/types'
+import { buildAnnualNormalOption, buildCumulativeRainfallOption, buildRecentVsNormalOption } from '@/utils/climateChart'
 import { CLIMATE_STATIONS, DEFAULT_CLIMATE_STATION_ID, isClimateStationId } from '@/utils/climateStations'
 import { currentTaipeiMonth } from '@/utils/formatDate'
 import { temperatureColor } from '@/utils/colorScales'
@@ -28,6 +28,16 @@ const { data: climate, status, error } = await useFetch<ClimateComparison>(() =>
   key: () => `climate-${stationId.value}`
 })
 
+// 雨量常態／今年每日雨量／今日紫外線峰值刻意不 await——這兩支上游（C-B0025-001、
+// O-A0005-001）比溫度比較明顯更常慢，若跟上面那支一樣用 top-level await，Nuxt 的
+// <Suspense> 會等它一起解決才顯示任何內容，慢的那支會拖著整頁卡在「載入中」出不來
+// （這是使用者實測回報的症狀）。server:false 讓它只在瀏覽器端背景抓，抓到才補上對應區塊，
+// 抓不到/還沒抓到就讓那幾個區塊保持不顯示，不影響溫度比較先出來
+const { data: extras } = useFetch<ClimateExtras>(() => `/api/climate/${stationId.value}/extras`, {
+  key: () => `climate-extras-${stationId.value}`,
+  server: false
+})
+
 // C-B0024-001／C-B0027-001 都是以「月」為單位的氣候常態，用台灣時間的月份去對照
 // （不能用 new Date().getMonth()，理由見 formatDate.ts 的說明）
 const currentMonth = currentTaipeiMonth()
@@ -38,6 +48,11 @@ const annualOption = computed(() =>
 )
 const recentOption = computed(() =>
   climate.value && currentNormal.value ? buildRecentVsNormalOption(climate.value.recentHourly, currentNormal.value) : null
+)
+const rainfallOption = computed(() =>
+  extras.value && extras.value.dailyRainfall.length > 0
+    ? buildCumulativeRainfallOption(extras.value.dailyRainfall, extras.value.monthlyPrecipitationNormals)
+    : null
 )
 
 const delta = computed(() => {
@@ -85,6 +100,10 @@ const deltaLabel = computed(() => {
           <p>{{ currentMonth }} 月常態平均 {{ currentNormal.meanTemperature }}°（{{ currentNormal.minTemperature }}°–{{ currentNormal.maxTemperature }}°）</p>
           <p class="mt-1 font-medium" :style="{ color: deltaColor }">{{ deltaLabel }}</p>
         </div>
+        <div v-if="extras && extras.todayMaxUvIndex !== null" class="ml-auto text-right">
+          <p class="text-sm text-text-muted">今日紫外線峰值</p>
+          <p class="tabular-nums text-2xl text-text-primary">{{ extras.todayMaxUvIndex }}</p>
+        </div>
       </section>
 
       <!-- 近期逐時 vs 當月常態 -->
@@ -97,6 +116,12 @@ const deltaLabel = computed(() => {
       <section v-if="annualOption" class="rounded-lg bg-surface-1 p-4">
         <h2 class="mb-2 text-sm font-medium text-text-secondary">全年氣候常態（實心點為當月）</h2>
         <ChartsBaseChart :option="annualOption" height="320px" />
+      </section>
+
+      <!-- 今年累積雨量 vs 氣候平均累積 -->
+      <section v-if="rainfallOption" class="rounded-lg bg-surface-1 p-4">
+        <h2 class="mb-2 text-sm font-medium text-text-secondary">今年累積雨量 vs 氣候平均累積</h2>
+        <ChartsBaseChart :option="rainfallOption" height="280px" />
       </section>
     </template>
   </div>

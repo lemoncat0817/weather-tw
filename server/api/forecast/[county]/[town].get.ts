@@ -1,8 +1,9 @@
 import { COUNTY_DATASETS } from '../../../utils/countyDatasets'
 import { normalizeTownExtended, normalizeTownHourly } from '../../../utils/normalize/forecast'
+import { normalizeSunTimes } from '../../../utils/normalize/astronomy'
 import type { TownForecast } from '#shared/types'
 
-/** 鄉鎮完整預報：3 天逐時 + 1 週延伸，合併成一份。快取 30 分鐘。 */
+/** 鄉鎮完整預報：3 天逐時 + 1 週延伸 + 今日日出日沒，合併成一份。快取 30 分鐘。 */
 export default defineCachedEventHandler(
   async (event): Promise<TownForecast> => {
     const county = decodeURIComponent(getRouterParam(event, 'county') ?? '')
@@ -13,9 +14,14 @@ export default defineCachedEventHandler(
       throw createError({ statusCode: 404, message: `找不到縣市「${county}」` })
     }
 
-    const [hourlyRaw, extendedRaw] = await Promise.all([
+    const [hourlyRaw, extendedRaw, sunTimes] = await Promise.all([
       fetchDataset(ids.threeDay, { locationId: ids.threeDay, LocationName: town }),
-      fetchDataset(ids.week, { locationId: ids.week, LocationName: town })
+      fetchDataset(ids.week, { locationId: ids.week, LocationName: town }),
+      // 日出日沒是逐時圖表的錦上添花（畫夜間陰影帶），不是預報本身——這支請求失敗
+      // 不該讓整個預報 API 跟著炸掉，退回 null，頁面就不畫陰影帶
+      fetchDataset('A-B0062-001', { CountyName: county, Date: todayInTaipei() })
+        .then((raw) => normalizeSunTimes(raw as never))
+        .catch(() => null)
     ])
 
     const hourly = normalizeTownHourly(hourlyRaw as never, county)
@@ -24,6 +30,10 @@ export default defineCachedEventHandler(
     }
 
     hourly.extended = normalizeTownExtended(extendedRaw as never)
+    if (sunTimes) {
+      hourly.sunrise = sunTimes.sunrise
+      hourly.sunset = sunTimes.sunset
+    }
     return hourly
   },
   {

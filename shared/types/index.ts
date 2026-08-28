@@ -110,14 +110,50 @@ export interface TownSummary {
 // 觀測資料
 // ---------------------------------------------------------------------------
 
+/**
+ * 雨量站（O-A0002-001）專屬的累積雨量各時距快照；氣象站（O-A0001/O-A0003）只回報「現在」
+ * 這一個瞬時值，沒有這組時距欄位，所以在氣象站永遠是 null。
+ */
+export interface PrecipitationAccumulation {
+  past10min: number | null
+  past1hr: number | null
+  past3hr: number | null
+  past6hr: number | null
+  past12hr: number | null
+  past24hr: number | null
+  past2days: number | null
+  past3days: number | null
+}
+
+/** 陣風：觀測時窗內出現的瞬間最大值，跟「現在」風速是兩回事 */
+export interface PeakGust {
+  speed: number | null
+  direction: number | null
+  time: string | null
+}
+
+/** 當日（自 00:00 起算）觀測到的最高/最低溫及發生時刻 */
+export interface DailyExtreme {
+  highTemperature: number | null
+  highTime: string | null
+  lowTemperature: number | null
+  lowTime: string | null
+}
+
 export interface ObservationReading {
   temperature: number | null
   relativeHumidity: number | null
   precipitation: number | null
+  precipitationAccumulation: PrecipitationAccumulation | null
   windSpeed: number | null
   windDirection: number | null
   airPressure: number | null
   uvIndex: number | null
+  peakGust: PeakGust | null
+  dailyExtreme: DailyExtreme | null
+  weatherDescription: string | null
+  visibility: string | null
+  sunshineDuration: number | null
 }
 
 export interface Observation {
@@ -125,6 +161,10 @@ export interface Observation {
   stationName: string
   county: string
   town: string
+  countyCode: string
+  townCode: string
+  /** 測站海拔（公尺），山區測站的溫度差異多半能由此解釋 */
+  altitude: number | null
   coordinates: Coordinates
   obsTime: string
   reading: ObservationReading
@@ -141,6 +181,14 @@ export interface RadarFrame {
   /** [west, south, east, north]，經緯度十進位度 */
   bounds: [number, number, number, number]
 }
+
+// ---------------------------------------------------------------------------
+// 衛星雲圖
+// ---------------------------------------------------------------------------
+
+/** 跟 RadarFrame 形狀完全相同（時間 + 影像網址 + 經緯度範圍），衛星圖層另外命名只是語意上
+ *  跟雷達分開，不代表結構有差異——兩者都是「單張定期更新的疊圖影像」這同一種東西。 */
+export type ImageOverlayFrame = RadarFrame
 
 // ---------------------------------------------------------------------------
 // 颱風
@@ -188,6 +236,30 @@ export interface Typhoon {
   probabilityCone: GeoFeature<GeoPolygon, { kind: 'probabilityCone' }> | null
 }
 
+export interface TyphoonAdvisorySection {
+  title: string
+  value: string
+}
+
+/**
+ * 颱風警報公告本身（W-C0034-001），跟上面的 Typhoon（W-C0034-005，路徑幾何）是互補的兩個角度：
+ * Typhoon 答「颱風現在/未來在哪裡」，這個答「現在是第幾報、海上還是陸上警報、CWA 原文怎麼說」。
+ * 海上、陸上警報可能同時作用中，故上游本來就是陣列。
+ */
+export interface TyphoonAdvisory {
+  headline: string
+  /** 'SEA' | 'LAND'，CWA 原始值直接保留，其餘未知值也原樣帶出 */
+  category: string
+  bulletinNumber: string
+  typhoonNo: string
+  typhoonName: string
+  typhoonNameZh: string
+  severity: CapSeverity
+  effective: string
+  expires: string
+  sections: TyphoonAdvisorySection[]
+}
+
 // ---------------------------------------------------------------------------
 // 地震
 // ---------------------------------------------------------------------------
@@ -196,6 +268,20 @@ export interface EarthquakeShakingArea {
   county: string
   areaDescription: string
   intensity: string
+}
+
+/** 測站級實測值（E-A0015-001／E-A0016-001 的 EqStation），比縣市彙總的 EarthquakeShakingArea
+ *  精細——位置是實際測站座標，不是行政區代表點。 */
+export interface EarthquakeStation {
+  stationId: string
+  stationName: string
+  position: Coordinates
+  seismicIntensity: string
+  epicenterDistance: number
+  /** 尖峰地表加速度（gal）；部分測站（多半是較舊、非強震儀站）沒有這組數值 */
+  pga: number | null
+  /** 尖峰地表速度（kine）；同上，可能缺 */
+  pgv: number | null
 }
 
 export interface Earthquake {
@@ -210,6 +296,7 @@ export interface Earthquake {
   epicenterDescription: string
   maxIntensity: string
   shakingAreas: EarthquakeShakingArea[]
+  stations: EarthquakeStation[]
   shakemapImageUrl: string | null
 }
 
@@ -241,6 +328,21 @@ export interface ClimateDailySummary {
   minTemperature: number
 }
 
+/** 某月的雨量氣候常態（C-B0027-001 的 Precipitation 類別，跟溫度是同一份常態資料集裡的不同欄位） */
+export interface ClimateMonthPrecipitationNormal {
+  month: number // 1-12
+  accumulationMm: number
+}
+
+/** 單日雨量（C-B0025-001）。trace（CWA 原始值 "T"，代表有下但不足 0.05mm）在這裡算成 0，
+ *  不是 null——這份資料只用來畫累積雨量，trace 對總量的影響本來就微乎其微，比起讓呼叫端
+ *  另外處理 null 造成累積和斷掉，算成 0 更單純；如果未來要做「降雨日數」這種在意「有沒有下」
+ *  的統計，trace 就不能這樣算，需要另外處理。 */
+export interface ClimateDailyRainfall {
+  date: string
+  precipitationMm: number
+}
+
 export interface ClimateComparison {
   stationId: string
   stationName: string
@@ -249,6 +351,22 @@ export interface ClimateComparison {
   monthlyNormals: ClimateMonthNormal[]
   recentHourly: ClimateHourlyReading[]
   yesterday: ClimateDailySummary | null
+}
+
+/**
+ * 雨量／紫外線的補充資訊，刻意跟 ClimateComparison 分開成獨立端點與型別——這兩支上游
+ * （C-B0025-001、O-A0005-001）比溫度比較用的兩支明顯不穩，合在同一個 Promise.all 時，
+ * 只要其中一支慢（最長可能等到 fetchDataset 的 15 秒逾時），整頁溫度資料也會被拖著一起卡住、
+ * 畫面卡在「載入氣候資料中…」出不來。拆開後主要內容（溫度）不受這兩支拖累，前端也用
+ * server:false 背景抓取、抓到才補上對應區塊，不阻塞頁面其餘部分。
+ */
+export interface ClimateExtras {
+  monthlyPrecipitationNormals: ClimateMonthPrecipitationNormal[]
+  /** 今年至今每日雨量（跟著 C-B0025-001 上游一起變動，通常涵蓋 1/1 到最近有資料的一天） */
+  dailyRainfall: ClimateDailyRainfall[]
+  /** 當日紫外線指數最大值（O-A0005-001）；跟 /observation 的即時 UV 是不同角度——這是「今天
+   *  峰值」，即時 UV 是「現在這一刻」。上游沒有資料或請求失敗時為 null。 */
+  todayMaxUvIndex: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -265,4 +383,120 @@ export interface WeatherHazard {
 export interface CountyWarning {
   county: string
   hazards: WeatherHazard[]
+}
+
+export type CapSeverity = 'Minor' | 'Moderate' | 'Severe' | 'Extreme'
+export type CapUrgency = 'Immediate' | 'Expected' | 'Future' | 'Past' | 'Unknown'
+export type CapCertainty = 'Observed' | 'Likely' | 'Possible' | 'Unlikely' | 'Unknown'
+
+/**
+ * CAP 格式的官方特報詳情（W-C0033-003/004/005：豪雨／低溫／高溫，各自單一現象），只包含目前仍
+ * 在有效期內的筆數——CWA 在沒有現行特報時仍會回傳最後一次發布的舊資料，不會自動清空，
+ * 過期的一律由 normalizer 濾掉，不會出現在這裡。
+ */
+export interface CapAdvisory {
+  event: string
+  headline: string
+  severity: CapSeverity
+  urgency: CapUrgency
+  certainty: CapCertainty
+  effective: string
+  expires: string
+  description: string
+  instruction: string | null
+}
+
+/**
+ * 目前所有作用中特報公告的全文（W-C0033-002），跟 CountyWarning 的縣市矩陣是互補的兩個角度：
+ * 矩陣答「哪個縣市有什麼」，這個答「這則特報完整在說什麼、影響哪些地方」。
+ */
+export interface WarningBulletin {
+  title: string
+  issueTime: string
+  startTime: string | null
+  endTime: string | null
+  contentText: string
+  hazards: Array<{ phenomena: string; significance: string; affectedAreas: string[] }>
+}
+
+export interface WarningDetail {
+  bulletins: WarningBulletin[]
+  advisories: CapAdvisory[]
+}
+
+// ---------------------------------------------------------------------------
+// 健康氣象（M-A0085-001 熱傷害指數）
+// ---------------------------------------------------------------------------
+
+/** CWA 官方四級警示；'none' 對應原始資料的空字串（未達注意等級） */
+export type HeatInjuryLevel = 'none' | 'caution' | 'watch' | 'danger' | 'high-danger'
+
+export interface HeatInjuryReading {
+  time: string
+  index: number
+  level: HeatInjuryLevel
+}
+
+/**
+ * 單一鄉鎮的熱傷害指數序列（5 天、3 小時一格，共 39 筆）。
+ * 全台摘要（/api/health/heat/summary）與單一鄉鎮明細（/api/health/heat/[county]/[town]）
+ * 共用同一個形狀，差別只在前者是 368 筆鄉鎮陣列、後者是單一鄉鎮。
+ */
+export interface HeatInjuryTownForecast {
+  county: string
+  town: string
+  coordinates: Coordinates
+  readings: HeatInjuryReading[]
+}
+
+// ---------------------------------------------------------------------------
+// 海象（浮標／潮位站觀測 + 潮汐預報）
+// ---------------------------------------------------------------------------
+
+export interface OceanReading {
+  time: string
+  tideHeight: number | null
+  tideLevel: string | null
+  waveHeight: number | null
+  waveDirection: number | null
+  wavePeriod: number | null
+  seaTemperature: number | null
+  windSpeed: number | null
+  windDirection: number | null
+}
+
+/** 單一浮標／潮位站 48 小時觀測（O-B0075-001）。CWA 沒有提供這些站的中文站名或座標對照表，
+ *  只有站號——見 app/utils/oceanBuoys.ts 開頭的說明，不在這裡假裝有更多資訊。 */
+export interface OceanBuoyObservation {
+  stationId: string
+  readings: OceanReading[]
+}
+
+export interface TideLocation {
+  id: string
+  name: string
+  coordinates: Coordinates
+}
+
+export interface TideEvent {
+  time: string
+  /** '滿潮' | '乾潮' */
+  type: string
+  /** 相對於海圖基準面的潮高（公分）——這個基準面下潮高恆為正值，比其他基準面更符合一般直覺 */
+  heightCm: number
+}
+
+export interface TideDay {
+  date: string
+  lunarDate: string
+  /** '大潮' | '中潮' | '小潮' */
+  tideRange: string
+  events: TideEvent[]
+}
+
+/** 單一地點未來 1 個月潮汐預報（F-A0021-001）。地點不限鄉鎮，也包含漁港、海水浴場、潛點等
+ *  CWA 自訂的興趣點，見 TideLocation.id 對應的 LocationId 格式（純數字＝行政區，其餘為代碼字首）。 */
+export interface TideForecast {
+  location: TideLocation
+  days: TideDay[]
 }

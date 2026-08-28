@@ -6,13 +6,17 @@ import type { GeoFeatureCollection, GeoPoint, Observation } from '#shared/types'
 import { buildLinearColorExpression, temperatureColorExpression } from '@/utils/mapColorExpression'
 import { temperatureColor, precipitationColor } from '@/utils/colorScales'
 import { flattenStationsByMetric } from '@/utils/stationGeo'
-import { formatTaipei } from '@/utils/formatDate'
+import { PRECIP_RANGES, PRECIP_RANGE_MAX, precipitationValue, flattenStationsByPrecipRange, type PrecipRangeKey } from '@/utils/precipitationRange'
+import { formatTaipei, formatTaipeiTime } from '@/utils/formatDate'
 
 useSeoMeta({ title: '觀測資料 — 氣象知多少', description: '全台測站即時觀測地圖與可排序表格，涵蓋氣象站與雨量站。' })
 
 type StationType = 'weather' | 'rain'
 // 記住使用者上次選的測站類型；initOnMounted 的理由見 climate.vue 同樣的寫法
 const stationType = useLocalStorage<StationType>('observation-station-type', 'weather', { initOnMounted: true })
+// 雨量站專屬：累積雨量時距（10分鐘～3日），地圖與表格共用同一個選定值
+const precipRange = useLocalStorage<PrecipRangeKey>('observation-precip-range', 'now', { initOnMounted: true })
+const precipRangeLabel = computed(() => PRECIP_RANGES.find((r) => r.key === precipRange.value)?.label ?? '')
 
 const { data: stations } = await useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations', {
   query: { type: stationType },
@@ -38,7 +42,10 @@ const TOP_LEVEL_KEYS = new Set(['stationName', 'county', 'obsTime'])
 
 function sortValue(row: Observation, key: typeof sortKey.value): string | number {
   if (TOP_LEVEL_KEYS.has(key)) return row[key as 'stationName' | 'county' | 'obsTime']
-  return row.reading[key as keyof Observation['reading']] ?? -Infinity
+  // 雨量欄位排序要跟著使用者選的時距走，不能固定用瞬時值，否則「排序」跟「顯示」對不上
+  if (key === 'precipitation') return precipitationValue(row.reading, precipRange.value) ?? -Infinity
+  const v = row.reading[key as keyof Observation['reading']]
+  return typeof v === 'number' ? v : -Infinity
 }
 
 const sortedRows = computed(() => {
@@ -71,18 +78,18 @@ const mapInstance = shallowRef<MapLibreMap | null>(null)
 const STATIONS_SOURCE = 'obs-stations'
 const STATIONS_LAYER = 'obs-stations-layer'
 
-function currentMetric() {
-  return stationType.value === 'rain' ? ('precipitation' as const) : ('temperature' as const)
-}
 function currentColorExpression() {
   return stationType.value === 'rain'
-    ? buildLinearColorExpression('value', [0, 50], precipitationColor, 6)
+    ? buildLinearColorExpression('value', [0, PRECIP_RANGE_MAX[precipRange.value]], precipitationColor, 6)
     : temperatureColorExpression('value', temperatureColor)
 }
 
 function renderStations(map: MapLibreMap) {
   if (!stations.value) return
-  const data = flattenStationsByMetric(stations.value, currentMetric())
+  const data =
+    stationType.value === 'rain'
+      ? flattenStationsByPrecipRange(stations.value, precipRange.value)
+      : flattenStationsByMetric(stations.value, 'temperature')
   const existing = map.getSource<GeoJSONSource>(STATIONS_SOURCE)
   if (existing) {
     existing.setData(data)
@@ -117,6 +124,12 @@ function onMapReady(map: MapLibreMap) {
 watch(stations, () => {
   if (mapInstance.value) renderStations(mapInstance.value)
 })
+
+// precipRange 不會觸發重新抓取（同一份 stations.value 換一個要顯示的巢狀欄位而已），
+// 跟上面 stations 的 watch 是兩件獨立的事，不會撞上同一次切換重畫兩次的效能問題
+watch(precipRange, () => {
+  if (mapInstance.value) renderStations(mapInstance.value)
+})
 </script>
 
 <template>
@@ -149,6 +162,20 @@ watch(stations, () => {
       <span class="text-xs text-text-muted">共 {{ filteredRows.length }} 站</span>
     </div>
 
+    <div v-if="stationType === 'rain'" class="flex flex-wrap items-center gap-1.5 rounded-lg bg-surface-1 p-3">
+      <span class="text-xs text-text-muted">累積雨量時距</span>
+      <button
+        v-for="r in PRECIP_RANGES"
+        :key="r.key"
+        type="button"
+        class="rounded-md px-2.5 py-1 text-xs"
+        :class="precipRange === r.key ? 'bg-accent text-surface-0' : 'text-text-secondary hover:bg-surface-2'"
+        @click="precipRange = r.key"
+      >
+        {{ r.label }}
+      </button>
+    </div>
+
     <section class="h-96 overflow-hidden rounded-lg bg-surface-1">
       <MapBaseMap @ready="onMapReady" />
     </section>
@@ -160,20 +187,44 @@ watch(stations, () => {
             <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('stationName')">測站</th>
             <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('county')">縣市/鄉鎮</th>
             <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('temperature')">溫度</th>
+            <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">今日高/低</th>
             <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('relativeHumidity')">濕度</th>
             <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('windSpeed')">風速</th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('precipitation')">雨量</th>
+            <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">陣風</th>
+            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('precipitation')">
+              雨量{{ stationType === 'rain' ? `（${precipRangeLabel}）` : '' }}
+            </th>
             <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('obsTime')">觀測時間</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="s in sortedRows" :key="s.stationId" class="border-b border-surface-2/60 hover:bg-surface-2/40">
-            <td class="px-3 py-1.5 text-text-primary">{{ s.stationName }}</td>
+            <td
+              class="px-3 py-1.5 text-text-primary"
+              :title="s.reading.weatherDescription ? `${s.reading.weatherDescription}・能見度 ${s.reading.visibility ?? '—'} km・海拔 ${s.altitude ?? '—'} m` : undefined"
+            >
+              {{ s.stationName }}
+            </td>
             <td class="px-3 py-1.5 text-text-secondary">{{ s.county }}{{ s.town }}</td>
             <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.temperature ?? '—' }}</td>
+            <td v-if="stationType === 'weather'" class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
+              <template v-if="s.reading.dailyExtreme">
+                {{ s.reading.dailyExtreme.highTemperature ?? '—' }} / {{ s.reading.dailyExtreme.lowTemperature ?? '—' }}
+              </template>
+              <template v-else>—</template>
+            </td>
             <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.relativeHumidity ?? '—' }}</td>
             <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.windSpeed ?? '—' }}</td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.precipitation ?? '—' }}</td>
+            <td
+              v-if="stationType === 'weather'"
+              class="px-3 py-1.5 text-right tabular-nums text-text-secondary"
+              :title="s.reading.peakGust?.time ? `發生於 ${formatTaipeiTime(s.reading.peakGust.time)}` : undefined"
+            >
+              {{ s.reading.peakGust?.speed ?? '—' }}
+            </td>
+            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
+              {{ stationType === 'rain' ? (precipitationValue(s.reading, precipRange) ?? '—') : (s.reading.precipitation ?? '—') }}
+            </td>
             <td class="px-3 py-1.5 text-right tabular-nums text-text-muted">{{ formatTaipei(s.obsTime) }}</td>
           </tr>
         </tbody>

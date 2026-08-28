@@ -30,6 +30,12 @@ export function formatTaipeiMonthDay(iso: string): string {
   return `${p.month}/${p.day}`
 }
 
+/** 只取時:分，24 小時制，例如「11:46」，用於陣風/當日極值這類「發生於幾點」的顯示 */
+export function formatTaipeiTime(iso: string): string {
+  const p = partsOf(new Date(iso), { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${p.hour}:${p.minute}`
+}
+
 /** 現在是台灣時間幾月（1-12）。同樣不能用 new Date().getMonth()——那是執行環境的本地時區，
  *  SSR/CSR 若剛好跨月份交界、兩邊時區又不同，會算出不同答案。氣候比較頁用來挑「本月」常態值。 */
 export function currentTaipeiMonth(): number {

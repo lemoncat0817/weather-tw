@@ -14,12 +14,14 @@ const [{ data: radarFrames }, { data: stations }] = await Promise.all([
   useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations')
 ])
 
-type SatelliteType = 'visible' | 'infrared'
-const satelliteType = ref<SatelliteType>('visible')
-// 衛星圖層預設關閉，跟鄉鎮分布同理不阻塞首屏；type 換了要重抓，所以 key 要帶 type
+// 只提供可見光——原本也接了紅外線（O-B0032-002），但實測拿 Taipei/Manila/Shanghai/Hainan
+// 等已知地標對照像素位置，發現 CWA 該資料集自報的 GeoInfo 經緯度範圍（"102.0-155.0" /
+// "0.0-50.0"，同系列 001/003/004 皆同）跟影像實際內容明顯對不上（Manila 落在海面、上海落在
+// 內陸），偏移幅度達數度、不是四捨五入的誤差，是上游中繼資料本身有問題，不是這裡座標運算寫錯
+// ——同一套程式碼、同一套 boundsToCoordinates 邏輯用在 O-B0031-003（可見光，GeoInfo 是精確到
+// 小數點後好幾位的實測值）就完全對齊。沒有可靠的校正方式前，不要疊一張座標對不齊的圖上去。
 const { data: satelliteFrame, execute: loadSatellite } = useFetch<ImageOverlayFrame>('/api/satellite/frame', {
-  query: { type: satelliteType },
-  key: () => `satellite-${satelliteType.value}`,
+  query: { type: 'visible' },
   immediate: false,
   server: false
 })
@@ -211,15 +213,10 @@ watch(radarOpacity, (v) => {
 watch(showSatellite, async (v) => {
   if (v) {
     showRadar.value = false
-    await loadSatellite()
+    if (!satelliteFrame.value) await loadSatellite()
     if (mapInstance.value) renderSatellite(mapInstance.value)
   }
   toggleLayer(SATELLITE_LAYER, v)
-})
-watch(satelliteType, async () => {
-  if (!showSatellite.value) return
-  await loadSatellite()
-  if (mapInstance.value) renderSatellite(mapInstance.value)
 })
 </script>
 
@@ -249,29 +246,9 @@ watch(satelliteType, async () => {
       </label>
       <label class="flex items-center gap-1.5 text-text-secondary">
         <input v-model="showSatellite" type="checkbox" class="accent-accent" >
-        衛星雲圖
+        衛星雲圖（可見光）
       </label>
-      <div v-if="showSatellite" class="flex items-center gap-2">
-        <div class="flex overflow-hidden rounded-md border border-surface-2">
-          <button
-            type="button"
-            class="px-2 py-1 text-xs"
-            :class="satelliteType === 'visible' ? 'bg-accent text-surface-0' : 'text-text-secondary hover:bg-surface-2'"
-            @click="satelliteType = 'visible'"
-          >
-            可見光
-          </button>
-          <button
-            type="button"
-            class="px-2 py-1 text-xs"
-            :class="satelliteType === 'infrared' ? 'bg-accent text-surface-0' : 'text-text-secondary hover:bg-surface-2'"
-            @click="satelliteType = 'infrared'"
-          >
-            紅外線
-          </button>
-        </div>
-        <span v-if="satelliteType === 'visible'" class="text-xs text-text-muted">夜間全黑屬正常現象，請改看紅外線</span>
-      </div>
+      <span v-if="showSatellite" class="text-xs text-text-muted">夜間因缺乏日照會呈現全黑，是正常現象</span>
       <span v-if="showSatellite && satelliteFrame" class="ml-auto text-xs text-text-muted">
         衛星影像時間：{{ formatTaipei(satelliteFrame.time) }}
       </span>

@@ -2,6 +2,7 @@ import type {
   ClimateComparison,
   ClimateDailyRainfall,
   ClimateDailySummary,
+  ClimateExtras,
   ClimateHourlyReading,
   ClimateMonthNormal,
   ClimateMonthPrecipitationNormal
@@ -158,12 +159,7 @@ export function climateNormalStationId(stationId: string): string {
   return NORMAL_STATION_ID_BY_CURRENT[stationId] ?? stationId
 }
 
-export function normalizeClimateComparison(
-  recentRaw: CwaRecentResponse,
-  normalRaw: CwaNormalResponse,
-  dailyRainRaw?: CwaDailyRainResponse,
-  maxUvRaw?: CwaMaxUvResponse
-): ClimateComparison | null {
+export function normalizeClimateComparison(recentRaw: CwaRecentResponse, normalRaw: CwaNormalResponse): ClimateComparison | null {
   const recentLoc = recentRaw.records?.location?.[0]
   const normalLoc = normalRaw.records?.data?.surfaceObs?.location?.[0]
   if (!recentLoc || !normalLoc) return null
@@ -171,17 +167,32 @@ export function normalizeClimateComparison(
   const airTemp = normalLoc.stationObsStatistics?.AirTemperature
   if (!airTemp) return null
 
-  const precipitationNormal = normalLoc.stationObsStatistics?.Precipitation
-  const dailyRainTimes = dailyRainRaw?.records?.location?.[0]?.stationObsTimes?.stationObsTime
-
   return {
     stationId: recentLoc.station.StationID,
     stationName: recentLoc.station.StationName,
     normalYears: [airTemp.StationStartYear, airTemp.StationEndYear],
     monthlyNormals: toMonthlyNormals(airTemp.monthly),
-    monthlyPrecipitationNormals: precipitationNormal ? toMonthlyPrecipitationNormals(precipitationNormal.monthly) : [],
     recentHourly: toHourly(recentLoc.stationObsTimes?.stationObsTime ?? []),
-    yesterday: toYesterday(recentLoc.stationObsStatistics?.AirTemperature?.daily?.[0]),
+    yesterday: toYesterday(recentLoc.stationObsStatistics?.AirTemperature?.daily?.[0])
+  }
+}
+
+/**
+ * 雨量常態＋今年每日雨量＋今日紫外線峰值，刻意獨立於 normalizeClimateComparison 之外——
+ * 拆分的理由（連同 C-B0025-001／O-A0005-001 比另外兩支上游更常慢/不穩定的說明）見
+ * shared/types 的 ClimateExtras 註解。monthlyPrecipitationNormals 雖然來自跟溫度常態
+ * 同一支 normalRaw，但因為是「補充資訊」語意上歸在這裡，不歸在 ClimateComparison。
+ */
+export function normalizeClimateExtras(
+  normalRaw: CwaNormalResponse,
+  dailyRainRaw?: CwaDailyRainResponse,
+  maxUvRaw?: CwaMaxUvResponse
+): ClimateExtras {
+  const precipitationNormal = normalRaw.records?.data?.surfaceObs?.location?.[0]?.stationObsStatistics?.Precipitation
+  const dailyRainTimes = dailyRainRaw?.records?.location?.[0]?.stationObsTimes?.stationObsTime
+
+  return {
+    monthlyPrecipitationNormals: precipitationNormal ? toMonthlyPrecipitationNormals(precipitationNormal.monthly) : [],
     dailyRainfall: dailyRainTimes ? toDailyRainfall(dailyRainTimes) : [],
     todayMaxUvIndex: maxUvRaw ? normalizeMaxUvIndex(maxUvRaw) : null
   }

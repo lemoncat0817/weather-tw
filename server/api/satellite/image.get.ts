@@ -2,9 +2,9 @@ import { normalizeSatelliteFrame } from '../../utils/normalize/satellite'
 import { persistOverlayImage, readStoredOverlayImage } from '../../utils/imageOverlay'
 import type { H3Event } from 'h3'
 
+// 只有 visible——infrared（O-B0032-002）已移除，理由見 frame.get.ts 開頭的說明
 const DATASET_BY_TYPE = {
-  visible: 'O-B0031-003',
-  infrared: 'O-B0032-002'
+  visible: 'O-B0031-003'
 } as const
 type SatelliteType = keyof typeof DATASET_BY_TYPE
 

@@ -6,7 +6,8 @@ const navItems = [
   { to: '/earthquake', label: '地震' },
   { to: '/observation', label: '觀測' },
   { to: '/climate', label: '趨勢' },
-  { to: '/warnings', label: '特報' }
+  { to: '/warnings', label: '特報' },
+  { to: '/health', label: '健康' }
 ]
 
 const mobileNavOpen = ref(false)

@@ -306,3 +306,28 @@ export interface CountyWarning {
   county: string
   hazards: WeatherHazard[]
 }
+
+// ---------------------------------------------------------------------------
+// 健康氣象（M-A0085-001 熱傷害指數）
+// ---------------------------------------------------------------------------
+
+/** CWA 官方四級警示；'none' 對應原始資料的空字串（未達注意等級） */
+export type HeatInjuryLevel = 'none' | 'caution' | 'watch' | 'danger' | 'high-danger'
+
+export interface HeatInjuryReading {
+  time: string
+  index: number
+  level: HeatInjuryLevel
+}
+
+/**
+ * 單一鄉鎮的熱傷害指數序列（5 天、3 小時一格，共 39 筆）。
+ * 全台摘要（/api/health/heat/summary）與單一鄉鎮明細（/api/health/heat/[county]/[town]）
+ * 共用同一個形狀，差別只在前者是 368 筆鄉鎮陣列、後者是單一鄉鎮。
+ */
+export interface HeatInjuryTownForecast {
+  county: string
+  town: string
+  coordinates: Coordinates
+  readings: HeatInjuryReading[]
+}

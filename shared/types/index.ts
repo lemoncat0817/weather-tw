@@ -228,6 +228,30 @@ export interface Typhoon {
   probabilityCone: GeoFeature<GeoPolygon, { kind: 'probabilityCone' }> | null
 }
 
+export interface TyphoonAdvisorySection {
+  title: string
+  value: string
+}
+
+/**
+ * 颱風警報公告本身（W-C0034-001），跟上面的 Typhoon（W-C0034-005，路徑幾何）是互補的兩個角度：
+ * Typhoon 答「颱風現在/未來在哪裡」，這個答「現在是第幾報、海上還是陸上警報、CWA 原文怎麼說」。
+ * 海上、陸上警報可能同時作用中，故上游本來就是陣列。
+ */
+export interface TyphoonAdvisory {
+  headline: string
+  /** 'SEA' | 'LAND'，CWA 原始值直接保留，其餘未知值也原樣帶出 */
+  category: string
+  bulletinNumber: string
+  typhoonNo: string
+  typhoonName: string
+  typhoonNameZh: string
+  severity: CapSeverity
+  effective: string
+  expires: string
+  sections: TyphoonAdvisorySection[]
+}
+
 // ---------------------------------------------------------------------------
 // 地震
 // ---------------------------------------------------------------------------
@@ -305,6 +329,45 @@ export interface WeatherHazard {
 export interface CountyWarning {
   county: string
   hazards: WeatherHazard[]
+}
+
+export type CapSeverity = 'Minor' | 'Moderate' | 'Severe' | 'Extreme'
+export type CapUrgency = 'Immediate' | 'Expected' | 'Future' | 'Past' | 'Unknown'
+export type CapCertainty = 'Observed' | 'Likely' | 'Possible' | 'Unlikely' | 'Unknown'
+
+/**
+ * CAP 格式的官方特報詳情（W-C0033-003/004/005：豪雨／低溫／高溫，各自單一現象），只包含目前仍
+ * 在有效期內的筆數——CWA 在沒有現行特報時仍會回傳最後一次發布的舊資料，不會自動清空，
+ * 過期的一律由 normalizer 濾掉，不會出現在這裡。
+ */
+export interface CapAdvisory {
+  event: string
+  headline: string
+  severity: CapSeverity
+  urgency: CapUrgency
+  certainty: CapCertainty
+  effective: string
+  expires: string
+  description: string
+  instruction: string | null
+}
+
+/**
+ * 目前所有作用中特報公告的全文（W-C0033-002），跟 CountyWarning 的縣市矩陣是互補的兩個角度：
+ * 矩陣答「哪個縣市有什麼」，這個答「這則特報完整在說什麼、影響哪些地方」。
+ */
+export interface WarningBulletin {
+  title: string
+  issueTime: string
+  startTime: string | null
+  endTime: string | null
+  contentText: string
+  hazards: Array<{ phenomena: string; significance: string; affectedAreas: string[] }>
+}
+
+export interface WarningDetail {
+  bulletins: WarningBulletin[]
+  advisories: CapAdvisory[]
 }
 
 // ---------------------------------------------------------------------------

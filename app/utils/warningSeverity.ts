@@ -8,3 +8,27 @@ export function severityClass(phenomena: string): string {
   if (phenomena.includes('大雨') || phenomena.includes('低溫')) return 'bg-severity-watch/15 text-severity-watch'
   return 'bg-severity-advisory/15 text-severity-advisory'
 }
+
+/**
+ * CAP 格式（W-C0033-003/004/005）帶的是官方判定的 severity，不用再靠關鍵字猜——
+ * 只在豪雨／低溫／高溫這三種現象才拿得到，其餘現象仍只能靠上面的 severityClass 猜測。
+ */
+export function capSeverityClass(severity: string): string {
+  switch (severity) {
+    case 'Extreme':
+      return 'bg-severity-emergency/15 text-severity-emergency'
+    case 'Severe':
+      return 'bg-severity-warning/15 text-severity-warning'
+    case 'Moderate':
+      return 'bg-severity-watch/15 text-severity-watch'
+    default:
+      return 'bg-severity-advisory/15 text-severity-advisory'
+  }
+}
+
+export const CAP_SEVERITY_LABEL: Record<string, string> = {
+  Minor: '輕微',
+  Moderate: '中等',
+  Severe: '嚴重',
+  Extreme: '極端'
+}

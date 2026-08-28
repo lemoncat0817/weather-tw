@@ -1,24 +1,36 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { Popup, type MapLibreMap } from 'maplibre-gl'
-import type { Typhoon, TyphoonFixPoint, GeoFeatureCollection, GeoPoint } from '#shared/types'
+import type { Typhoon, TyphoonFixPoint, TyphoonAdvisory, GeoFeatureCollection, GeoPoint } from '#shared/types'
 import { buildTyphoonIntensityOption } from '@/utils/typhoonChart'
 import { windSpeedColorExpression } from '@/utils/mapColorExpression'
 import { windSpeedColor } from '@/utils/colorScales'
+import { capSeverityClass } from '@/utils/warningSeverity'
 import { formatTaipei } from '@/utils/formatDate'
 
 useSeoMeta({
   title: '颱風路徑 — 氣象知多少',
-  description: '活躍颱風的歷史與預報路徑、70% 機率不確定性錐、象限風半徑與強度時序。'
+  description: '活躍颱風的歷史與預報路徑、70% 機率不確定性錐、象限風半徑與強度時序，含官方警報公告全文。'
 })
 
-const { data: typhoons } = await useFetch<Typhoon[]>('/api/typhoon/active')
+const [{ data: typhoons }, { data: advisories }] = await Promise.all([
+  useFetch<Typhoon[]>('/api/typhoon/active'),
+  useFetch<TyphoonAdvisory[]>('/api/typhoon/advisories')
+])
+
+const CATEGORY_LABEL: Record<string, string> = { SEA: '海上警報', LAND: '陸上警報' }
 
 const selectedId = ref<string | null>(null)
 const selected = computed<Typhoon | null>(() => {
   const list = typhoons.value ?? []
   if (list.length === 0) return null
   return list.find((t) => t.id === selectedId.value) ?? list[0]!
+})
+
+// 兩個獨立資料集用颱風「英文名」互相比對——W-C0034-001 沒有帶跟 Typhoon.id 一樣的年份/編號可以直接比
+const selectedAdvisories = computed<TyphoonAdvisory[]>(() => {
+  if (!selected.value) return []
+  return (advisories.value ?? []).filter((a) => a.typhoonName === selected.value!.name)
 })
 
 const latest = computed<TyphoonFixPoint | null>(() => selected.value?.track.at(-1) ?? null)
@@ -180,6 +192,24 @@ watch(selected, (typhoon) => {
             <p class="tabular-nums text-text-primary">{{ latest.movingSpeed ?? '—' }} km/h</p>
           </div>
         </div>
+      </section>
+
+      <!-- 官方警報公告：報數、海上/陸上類別、CWA 原文章節。可能同時有海上+陸上兩則警報 -->
+      <section v-if="selectedAdvisories.length > 0" class="space-y-2">
+        <details v-for="a in selectedAdvisories" :key="a.category" class="rounded-lg p-4 text-sm" :class="capSeverityClass(a.severity)">
+          <summary class="cursor-pointer font-medium">
+            {{ a.headline }}（{{ CATEGORY_LABEL[a.category] ?? a.category }}第 {{ a.bulletinNumber }} 報）
+            <span class="ml-2 text-xs font-normal opacity-80">
+              有效至 {{ formatTaipei(a.expires) }}
+            </span>
+          </summary>
+          <div class="mt-3 space-y-2">
+            <div v-for="s in a.sections" :key="s.title">
+              <p class="font-medium opacity-90">{{ s.title }}</p>
+              <p class="whitespace-pre-line opacity-80">{{ s.value }}</p>
+            </div>
+          </div>
+        </details>
       </section>
 
       <!-- 路徑地圖 -->

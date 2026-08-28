@@ -38,7 +38,15 @@ onMounted(() => {
   map.value = instance
 
   instance.addControl(new NavigationControl({ showCompass: false }), 'top-right')
-  instance.on('load', () => emit('ready', instance))
+  // style.load 在底圖圖磚下載完之前就會觸發；等 `load` 才加雷達圖層會讓 PNG 晚兩秒才開始抓
+  let readyEmitted = false
+  const notifyReady = () => {
+    if (readyEmitted) return
+    readyEmitted = true
+    emit('ready', instance)
+  }
+  instance.once('style.load', notifyReady)
+  instance.once('load', notifyReady)
 })
 
 onBeforeUnmount(() => {

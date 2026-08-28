@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch, computed } from 'vue'
-import { Popup, type MapLibreMap } from 'maplibre-gl'
+import { ref, shallowRef, watch, computed, onBeforeUnmount } from 'vue'
+import { Popup, type ImageSource, type MapLibreMap } from 'maplibre-gl'
 import type { RadarFrame, ImageOverlayFrame, GeoFeatureCollection, GeoPoint, GeoPolygon, Observation, TownSummary } from '#shared/types'
 import { temperatureColorExpression } from '@/utils/mapColorExpression'
 import { temperatureColor } from '@/utils/colorScales'
@@ -48,6 +48,37 @@ const showSatellite = ref(false)
 const radarOpacity = ref(0.7)
 const mapInstance = shallowRef<MapLibreMap | null>(null)
 
+// 雷達回波動畫：CWA 只給最新一張圖，/api/radar/frames 在伺服器端滾動累積成最多 6 張
+// （約可回放 1 小時），這裡加一個 index 讓使用者拖曳或播放來回顧。預設停在最新一張，
+// 跟原本沒有動畫功能時的畫面一致。
+const radarFrameIndex = ref((radarFrames.value?.length ?? 0) - 1)
+const displayedRadarFrame = computed(() => radarFrames.value?.[radarFrameIndex.value] ?? null)
+const isRadarPlaying = ref(false)
+const RADAR_PLAYBACK_INTERVAL_MS = 700
+let radarPlaybackTimer: ReturnType<typeof setInterval> | null = null
+
+function stopRadarPlayback() {
+  if (radarPlaybackTimer === null) return
+  clearInterval(radarPlaybackTimer)
+  radarPlaybackTimer = null
+  isRadarPlaying.value = false
+}
+
+function toggleRadarPlayback() {
+  const frames = radarFrames.value
+  if (!frames || frames.length < 2) return
+  if (isRadarPlaying.value) {
+    stopRadarPlayback()
+    return
+  }
+  isRadarPlaying.value = true
+  radarPlaybackTimer = setInterval(() => {
+    radarFrameIndex.value = (radarFrameIndex.value + 1) % frames.length
+  }, RADAR_PLAYBACK_INTERVAL_MS)
+}
+
+onBeforeUnmount(stopRadarPlayback)
+
 const RADAR_SOURCE = 'radar'
 const RADAR_LAYER = 'radar-layer'
 const STATIONS_SOURCE = 'stations'
@@ -71,7 +102,7 @@ function boundsToCoordinates(
 }
 
 function setupRadar(map: MapLibreMap) {
-  const frame = latestRadar.value
+  const frame = displayedRadarFrame.value
   if (!frame || map.getSource(RADAR_SOURCE)) return
   map.addSource(RADAR_SOURCE, { type: 'image', url: frame.imageUrl, coordinates: boundsToCoordinates(frame.bounds) })
   map.addLayer({
@@ -195,6 +226,16 @@ watch(showRadar, (v) => {
   toggleLayer(RADAR_LAYER, v)
   // 雷達跟衛星都是不透明疊圖，同時開兩層只會互相蓋住，開一個就關掉另一個
   if (v) showSatellite.value = false
+  else stopRadarPlayback()
+})
+// 切換到別的影格（使用者拖曳時間軸，或播放中每一格 tick）：image source 換圖不能用
+// GeoJSON 那種 setData，但也不必像衛星圖那樣整層 remove/re-add——updateImage 可以原地換
+// url + coordinates，播放時每 700ms 呼叫一次也不會有 remove/add 圖層的閃爍
+watch(displayedRadarFrame, (frame) => {
+  const map = mapInstance.value
+  const source = map?.getSource(RADAR_SOURCE) as ImageSource | undefined
+  if (!frame || !source) return
+  source.updateImage({ url: frame.imageUrl, coordinates: boundsToCoordinates(frame.bounds) })
 })
 watch(showStations, (v) => toggleLayer(STATIONS_LAYER, v))
 watch(showChoropleth, async (v) => {
@@ -236,6 +277,26 @@ watch(showSatellite, async (v) => {
         step="0.1"
         class="w-24 accent-accent"
       >
+      <div v-if="showRadar && radarFrames && radarFrames.length > 1" class="flex items-center gap-1.5">
+        <button
+          type="button"
+          class="rounded-md bg-surface-2 px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+          :aria-label="isRadarPlaying ? '暫停雷達回波動畫' : '播放雷達回波動畫'"
+          @click="toggleRadarPlayback"
+        >
+          {{ isRadarPlaying ? '⏸' : '▶' }}
+        </button>
+        <input
+          v-model.number="radarFrameIndex"
+          type="range"
+          min="0"
+          :max="radarFrames.length - 1"
+          step="1"
+          class="w-32 accent-accent"
+          aria-label="雷達回波時間軸"
+          @input="stopRadarPlayback"
+        >
+      </div>
       <label class="flex items-center gap-1.5 text-text-secondary">
         <input v-model="showStations" type="checkbox" class="accent-accent" >
         測站觀測
@@ -252,8 +313,8 @@ watch(showSatellite, async (v) => {
       <span v-if="showSatellite && satelliteFrame" class="ml-auto text-xs text-text-muted">
         衛星影像時間：{{ formatTaipei(satelliteFrame.time) }}
       </span>
-      <span v-else-if="latestRadar" class="ml-auto text-xs text-text-muted">
-        雷達影像時間：{{ formatTaipei(latestRadar.time) }}
+      <span v-else-if="displayedRadarFrame" class="ml-auto text-xs text-text-muted">
+        雷達影像時間：{{ formatTaipei(displayedRadarFrame.time) }}
       </span>
     </div>
 

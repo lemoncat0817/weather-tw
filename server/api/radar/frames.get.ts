@@ -19,12 +19,16 @@ export default defineCachedEventHandler(
     const storage = useStorage('cache')
     const existing = (await storage.getItem<RadarFrame[]>(RADAR_FRAMES_STORAGE_KEY)) ?? []
 
-    const frames = existing.some((f) => f.time === latest.time) ? existing : [...existing, latest].slice(-MAX_FRAMES)
+    // 上游約每 10 分鐘出一張新圖，但這支 handler 5 分鐘就可能跑一次，所以有一半的執行
+    // 拿到的是「已經收過」的影格。只有真的是新影格才需要去抓 PNG——舊影格的圖早就存在
+    // storage 裡了，再跑一次 persistRadarImage 只會白白重下載一張 384 KB 的圖。
+    const isNewFrame = !existing.some((f) => f.time === latest.time)
+    const frames = isNewFrame ? [...existing, latest].slice(-MAX_FRAMES) : existing
     const evicted = existing.filter((f) => !frames.some((kept) => kept.time === f.time))
 
     await Promise.all([
       storage.setItem(RADAR_FRAMES_STORAGE_KEY, frames),
-      persistRadarImage(latest),
+      isNewFrame ? persistRadarImage(latest) : Promise.resolve(),
       pruneRadarImages(evicted)
     ])
     return frames.map(toProxiedRadarFrame)

@@ -79,6 +79,30 @@ dataset actually moves (radar 5 min, observation 10 min, forecast 30 min, climat
 that storage as real state, not just cache: CWA only exposes the single latest radar image, so the
 handler accumulates a 6-frame rolling window server-side to make the animation possible.
 
+**Cache at the granularity the *upstream data* has, not the granularity the route happens to have.**
+Sunrise/sunset (`A-B0062-001`) is one row per county per day, but it used to be fetched inside the
+per-town forecast handler, whose cache key is the full path — so 368 towns each re-asked CWA for an
+identical answer, up to ~17,664 requests/day against a key that has a quota. It now goes through
+`sunTimesFor()` in `server/utils/sunTimes.ts`, a `defineCachedFunction` keyed by county + date: 22
+requests/day. Reach for `defineCachedFunction` whenever several routes need the same upstream slice.
+Do **not** pass a custom `getKey` there — Nitro runs it through `escapeKey`
+(`String(key).replace(/\W/g, '')`) and JS `\w` is ASCII-only, so Chinese county names collapse to the
+empty string, the same trap `cacheKeyFor` exists for. The default `hash(args)` is already safe.
+
+**KV reads are not free, and existence checks are the trap.** unstorage's `cloudflare-kv-binding`
+driver implements both `getItemRaw` *and* `hasItem` as `KV.get(key)` — checking whether a 384 KB
+radar PNG exists costs a full 384 KB read. So `persistRadarImage` no longer checks; its two callers
+already know the answer. Likewise `/api/radar/image?t=...` derives the storage key straight from the
+timestamp hash instead of reading `frames.json` first, halving KV reads on the hot path.
+
+**Worker responses are not edge-cached by Cloudflare.** Only a Worker's own outbound `fetch`
+subrequests are. `Cache-Control` on a handler response therefore only reaches the browser, and every
+new visitor still costs a Worker invocation plus a KV read. The two image proxies put their bytes in
+`caches.default` through `server/utils/edgeCache.ts` (a no-op off Cloudflare, and every call is
+wrapped so a cache failure can only cost speed, never correctness). They only cache when the bytes
+actually match the `?t=` in the URL — otherwise a stale timestamp would get an `immutable` response
+pinned to it.
+
 **Timezones.** CWA is inconsistent — some datasets carry `+08:00`, some emit naive
 `YYYY-MM-DD HH:MM:SS` that is really Taipei time. Normalizers must emit an explicit offset
 (`server/utils/normalize/warning.ts` shows the pattern); parsing naive strings works on a Taipei
@@ -103,21 +127,33 @@ binding and worker name, never secrets.
 
 ## Frontend specifics
 
-**The MapLibre worker must stay hand-wired.** MapLibre builds its worker URL by string
-concatenation, which Vite cannot see, so the worker file is never emitted by a production build and
-the map renders completely black (controls visible, no tiles). The fix has three parts, all
-required: `public/maplibre-gl-worker.mjs` and `public/maplibre-gl-shared.mjs` copied from
-`node_modules/maplibre-gl/dist/`, `setWorkerUrl('/maplibre-gl-worker.mjs')` in
-`app/plugins/maplibre-worker.client.ts`, and `vite.optimizeDeps.exclude: ['maplibre-gl']` for dev.
-**Re-copy both files when bumping maplibre-gl to a new major.**
+**maplibre-gl and ECharts are loaded through guarded dynamic imports — never import either
+package directly.** Use `loadMapLibre()` from `app/utils/maplibre.ts` and `loadECharts()` from
+`app/utils/echarts.ts`; `import type` is fine anywhere because type imports are erased. Both loaders
+wrap their `import()` in `if (import.meta.client)`, which Vite folds to `false` in the SSR build so
+Rollup drops the whole branch. That guard is load-bearing twice over:
 
-**ECharts** is registered module-by-module in `app/plugins/echarts.client.ts` (client-only — it
-needs Canvas) and exposed as `$echarts`. Its `app-dark` theme hardcodes hex values that duplicate
-the CSS tokens in `app/assets/css/main.css`; ECharts cannot read CSS variables, so changing a token
-means changing both places. `app/components/charts/BaseChart.vue` intentionally avoids
-`vue-echarts` and initializes off a `watch` on the template ref rather than `onMounted`, because the
-ref lives inside `<ClientOnly>` and is still null when `onMounted` fires. Don't "simplify" either
-back.
+- A static import from a Nuxt *plugin* lands in the entry chunk every route downloads. Both used to
+  be plugins, which is why one 1.65 MB chunk (480 KB gzip) was served to `/warnings` and `/climate`,
+  pages with neither a map nor a chart. Initial JS per page is now ~85–95 KB gzip everywhere.
+- A static import anywhere reachable from SSR puts the package in the Worker bundle, where neither
+  can ever run (WebGL/Canvas). Removing them took the deployed Worker from 548 KB to 287 KB gzip.
+
+`setWorkerUrl('/maplibre-gl-worker.mjs')` lives inside `loadMapLibre()` so loading the module and
+configuring its worker URL can never come apart. That URL is required: MapLibre builds its worker
+path by string concatenation, which Vite cannot see, so the file is never emitted by a production
+build and the map renders completely black (controls visible, no tiles). The other two parts of that
+fix stay as they are — `public/maplibre-gl-worker.mjs` and `public/maplibre-gl-shared.mjs` copied
+from `node_modules/maplibre-gl/dist/`, and `vite.optimizeDeps.exclude: ['maplibre-gl']` for dev.
+**Re-copy both files when bumping maplibre-gl to a new major — the two `.mjs` files only, never the
+`.mjs.map` sourcemaps (2.4 MB of dead weight that ships to Workers).**
+
+**ECharts** is registered module-by-module in `app/utils/echartsCore.ts` (the chunk `loadECharts()`
+pulls in). Its `app-dark` theme hardcodes hex values that duplicate the CSS tokens in
+`app/assets/css/main.css`; ECharts cannot read CSS variables, so changing a token means changing
+both places. `app/components/charts/BaseChart.vue` intentionally avoids `vue-echarts` and
+initializes off a `watch` on the template ref rather than `onMounted`, because the ref lives inside
+`<ClientOnly>` and is still null when `onMounted` fires. Don't "simplify" either back.
 
 **Styling** is Tailwind v4 with CSS-first `@theme` tokens in `app/assets/css/main.css`. The site is
 dark-only by product decision, not an unfinished light mode. Chart data colors live separately in
@@ -127,6 +163,27 @@ safety guarantee — never reorder or cycle it. Those are a different semantic s
 
 Pages fetch with `useFetch<T>` against `/api/**`, typed by `#shared/types`. When the URL depends on
 reactive state, pass a getter for both the URL and `key` (see `app/pages/index.vue`).
+
+**Data that only feeds a MapLibre layer must not be SSR'd.** Everything `useFetch` resolves on the
+server is serialized into `__NUXT_DATA__` and re-parsed during hydration — worth it for content the
+server actually renders (the `/observation` table is real SEO text and stays SSR'd), pure waste for
+anything the map consumes after hydration. `/health` was shipping 600 KB of payload to render an
+empty map container, and `/map` 262 KB of station readings to draw dots; both use `server: false`
+now and their HTML dropped to ~88 KB. Two things to get right when you do this: add a `watch` so the
+layer is drawn when the data lands (the map is usually ready first), and never branch the template
+on `status` — it is `'idle'` on the server and `'pending'` during hydration, which is a guaranteed
+mismatch. Branch on the data ref being null instead, as `app/pages/health/index.vue` does.
+
+**Radar playback swaps decoded bitmaps, not URLs.** The CWA composite is a 3600×3600 PNG: 384 KB on
+the wire, 49.4 MB decoded. `ImageSource.updateImage({ url })` re-fetches *and re-decodes* on every
+call, and the browser HTTP cache stores the compressed PNG, so the decode cost recurs every single
+700 ms tick. `app/utils/radarBitmap.ts` decodes each frame once via
+`createImageBitmap(blob, { resizeWidth: 1400, resizeHeight: 1400 })` and playback feeds
+`updateImage({ image })`, which the API documents as displaying an already-decoded image with no
+network request. Verified in a real browser: two full playback loops, six decode calls total.
+Decoding is deliberately deferred until the user first touches the timeline, and the initial frame
+still goes through `{ url }` so it can reuse the `<link rel="preload">` fetch. Call `dispose()` on
+unmount — `ImageBitmap`s are not garbage collected on their own.
 
 ## Tests
 

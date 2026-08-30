@@ -6,6 +6,13 @@ import type { ImageOverlayFrame } from '#shared/types'
 
 interface ImageOverlayMeta {
   time: string
+  /**
+   * 影像的位元組數。存這個純粹是為了「不用把圖讀出來也能判斷它存在且不是空的」——
+   * unstorage 的 cloudflare-kv-binding 驅動連 hasItem 底層都是 `KV.get(key)`，
+   * 為了一個布林值就要把整張圖從 KV 讀出來，這在每 10 分鐘跑一次的刷新流程上是純浪費。
+   * 舊版寫入的 meta 沒有這個欄位，會被視為需要重抓，自己修正一次就好。
+   */
+  bytes?: number
 }
 
 function toUint8Array(raw: unknown): Uint8Array | null {
@@ -38,16 +45,14 @@ export async function persistOverlayImage(key: string, frame: ImageOverlayFrame)
   const imageKey = `overlay:${key}:image.bin`
 
   const meta = await storage.getItem<ImageOverlayMeta>(metaKey)
-  if (meta?.time === frame.time) {
-    const existing = toUint8Array(await storage.getItemRaw(imageKey))
-    if (existing && existing.byteLength > 0) return
-  }
+  if (meta?.time === frame.time && (meta.bytes ?? 0) > 0) return
 
   try {
     const buf = await $fetch<ArrayBuffer>(frame.imageUrl, { responseType: 'arrayBuffer', timeout: 15_000 })
+    const bytes = new Uint8Array(buf)
     await Promise.all([
-      storage.setItemRaw(imageKey, new Uint8Array(buf)),
-      storage.setItem(metaKey, { time: frame.time } satisfies ImageOverlayMeta)
+      storage.setItemRaw(imageKey, bytes),
+      storage.setItem(metaKey, { time: frame.time, bytes: bytes.byteLength } satisfies ImageOverlayMeta)
     ])
   } catch {
     // 影像抓取失敗時留下舊檔（若有）；圖片代理端點會再試一次

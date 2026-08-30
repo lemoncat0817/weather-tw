@@ -153,3 +153,30 @@ Cloudflare 專屬設定（KV 快取、`nodeCompat`、`deployConfig`）只在偵�
 **根目錄的 `wrangler.jsonc` 不會被直接部署**——Nitro 在建置時讀取它，與自己產生的設定合併後寫入
 `.output/server/wrangler.json`，那才是 `wrangler deploy` 實際使用的檔案。根目錄這份只提供 Nitro
 推導不出來的設定（Worker 名稱與 KV binding），**不放任何密鑰**。
+
+---
+
+## 資源用量
+
+這站跑在免費額度上，會先撞到的三個上限依序是 CWA API 請求次數、Cloudflare KV 讀寫次數、
+Worker bundle 體積。目前的設計刻意壓低這三項，改動時請留意不要把它們推回去。
+
+| 項目 | 目前狀況 | 什麼會讓它變糟 |
+|---|---|---|
+| Worker bundle | 287 KB gzip | 在任何 SSR 走得到的地方靜態 `import` maplibre-gl 或 echarts，整包會被打進 Worker（實測會漲到 548 KB gzip）。一律走 `loadMapLibre()` / `loadECharts()` |
+| 靜態資產 | 3.0 MB | 把 `maplibre-gl-*.mjs.map` 一起複製進 `public/`（2.4 MB 死重量） |
+| CWA 請求 | 圖片播放 **0 次**；主要用量是逐鄉鎮預報（每鄉鎮 3 支 × 30 分 TTL） | 在 per-town handler 裡加入「其實是縣市級或全國級」的上游請求。縣市級的請用 `defineCachedFunction`，見 `server/utils/sunTimes.ts` |
+| KV 讀取 | 圖片代理熱路徑 1 次／請求（原本 2 次） | 用 `getItemRaw`／`hasItem` 去「檢查存在」——這兩個在 KV 驅動上都會把整份值讀出來 |
+| KV 寫入 | 雷達只在收到新影格時才寫 PNG（約每 10 分一次） | 每次 handler 執行都無條件 `persistRadarImage` |
+
+雷達與衛星影像走的是 CWA 的 fileapi，它會 302 轉址到公開、免授權的 S3 物件，
+**圖片本體不消耗 API 配額**；只有取中繼資料的那一支帶金鑰。動畫播放完全不會增加 CWA 用量。
+
+圖片代理另外備有一層 Cloudflare Cache API 邊緣快取（[`server/utils/edgeCache.ts`](server/utils/edgeCache.ts)）。
+**但 Cache API 在 `*.workers.dev` 子網域上不生效**，本站目前正是部署在 workers.dev，所以那一層
+現階段等同 no-op——不會有副作用（所有操作都有 try/catch，失敗就走原本的 KV 路徑），但也還沒有
+效益。哪天綁上自訂網域，它會自動開始擋掉大部分的 Worker 呼叫與 KV 讀取，不需要改任何程式碼。
+
+`sitemap.xml` 掛出全部 368 個鄉鎮頁，搜尋引擎完整爬一輪會觸發約 736 次 CWA 請求
+（每頁 2 支預報上游，日出日沒已改為縣市級共用快取）。這是目前最大的單一尖峰來源，
+若之後 CWA 配額吃緊，第一個該調的是逐鄉鎮預報的 TTL。

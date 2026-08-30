@@ -1,6 +1,5 @@
 import { COUNTY_DATASETS } from '../../../utils/countyDatasets'
 import { normalizeTownExtended, normalizeTownHourly } from '../../../utils/normalize/forecast'
-import { normalizeSunTimes } from '../../../utils/normalize/astronomy'
 import type { TownForecast } from '#shared/types'
 
 /** 鄉鎮完整預報：3 天逐時 + 1 週延伸 + 今日日出日沒，合併成一份。快取 30 分鐘。 */
@@ -17,11 +16,10 @@ export default defineCachedEventHandler(
     const [hourlyRaw, extendedRaw, sunTimes] = await Promise.all([
       fetchDataset(ids.threeDay, { locationId: ids.threeDay, LocationName: town }),
       fetchDataset(ids.week, { locationId: ids.week, LocationName: town }),
-      // 日出日沒是逐時圖表的錦上添花（畫夜間陰影帶），不是預報本身——這支請求失敗
-      // 不該讓整個預報 API 跟著炸掉，退回 null，頁面就不畫陰影帶
-      fetchDataset('A-B0062-001', { CountyName: county, Date: todayInTaipei() })
-        .then((raw) => normalizeSunTimes(raw as never))
-        .catch(() => null)
+      // 日出日沒是逐時圖表的錦上添花（畫夜間陰影帶），不是預報本身——失敗退回 null，
+      // 頁面就不畫陰影帶。這支走 sunTimesFor 的縣市級函式快取，不跟著鄉鎮各快取一份：
+      // 同縣市同一天的答案完全相同，沒必要讓 368 個鄉鎮各自去問 CWA 一次（見 sunTimes.ts）
+      sunTimesFor(county, todayInTaipei())
     ])
 
     const hourly = normalizeTownHourly(hourlyRaw as never, county)

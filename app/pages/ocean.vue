@@ -19,18 +19,23 @@ const buoyId = computed({
     storedBuoyId.value = id
   }
 })
-const { data: buoy, status: buoyStatus } = await useFetch<OceanBuoyObservation>(() => `/api/ocean/buoy/${buoyId.value}`, {
-  key: () => `ocean-buoy-${buoyId.value}`
-})
+// 浮標觀測與潮汐地點清單是兩份互不相干的資料，分開 await 會讓 SSR 多等一輪 CWA 往返
+// （冷快取時每支上游都可能要一兩秒）。用 Promise.all 併發，跟 index.vue／map.vue 一致。
+// 下面的 tide 才真的相依於 tideLocations（預設地點取自清單第一筆），必須留在後面。
+const [{ data: buoy, status: buoyStatus }, { data: tideLocations }] = await Promise.all([
+  useFetch<OceanBuoyObservation>(() => `/api/ocean/buoy/${buoyId.value}`, {
+    key: () => `ocean-buoy-${buoyId.value}`
+  }),
+  useFetch<TideLocation[]>('/api/ocean/tide/locations')
+])
 
 const latestBuoyReading = computed(() => buoy.value?.readings.at(-1) ?? null)
 const waveOption = computed(() => (buoy.value ? buildWaveHeightOption(buoy.value.readings) : null))
 const seaTempOption = computed(() => (buoy.value ? buildSeaTemperatureOption(buoy.value.readings) : null))
 
 // --- 潮汐預報 ---
-// 地點清單不小（266 筆），單獨一支請求、快取 24 小時，不跟著每次換地點重抓
-const { data: tideLocations } = await useFetch<TideLocation[]>('/api/ocean/tide/locations')
-
+// 地點清單不小（266 筆），伺服器端單獨一支請求、快取 24 小時，不跟著每次換地點重抓
+// （請求本身在上面跟浮標觀測併發送出）
 const storedTideLocationId = useLocalStorage('ocean-tide-location-id', '', { initOnMounted: true })
 const tideLocationId = computed({
   get: () => storedTideLocationId.value || tideLocations.value?.[0]?.id || '',

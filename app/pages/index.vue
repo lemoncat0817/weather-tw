@@ -154,7 +154,23 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
       <!-- 雷達縮圖 -->
       <NuxtLink to="/map" class="group relative overflow-hidden rounded-lg bg-surface-1">
         <div class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">
-          <img v-if="latestRadar" :src="latestRadar.imageUrl" alt="雷達回波縮圖" class="h-full w-full object-cover opacity-70" >
+          <!-- 這張是 CWA 的整合回波原圖：3600×3600、傳輸 384 KB、解碼後 49.4 MB RGBA，
+               但在這裡只是一張約 380px 寬的裝飾縮圖。首頁是全站流量最大的頁面，不能讓它
+               跟主要內容搶頻寬與主執行緒——CWA 沒有提供低解析度版本，Workers 也沒有影像
+               處理能力可以在伺服器端縮圖，所以用瀏覽器原生的三個屬性把它徹底移出關鍵路徑：
+               lazy（捲到附近才抓，行動裝置多半根本不會抓）、async（解碼不卡主執行緒）、
+               low（優先度低於 LCP 內容）。width/height 宣告原始長寬比，讓版面不會位移。 -->
+          <img
+            v-if="latestRadar"
+            :src="latestRadar.imageUrl"
+            alt="雷達回波縮圖"
+            width="3600"
+            height="3600"
+            loading="lazy"
+            decoding="async"
+            fetchpriority="low"
+            class="h-full w-full object-cover opacity-70"
+          >
           <span v-else>雷達影像載入中…</span>
         </div>
         <div class="relative flex h-full min-h-40 items-end bg-gradient-to-t from-surface-0/90 to-transparent p-4">

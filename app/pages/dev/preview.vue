@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { CATEGORICAL, precipitationColor, temperatureColor, windSpeedColor, seismicIntensityColor } from '@/utils/colorScales'
 import type { WeatherIconKey } from '@/utils/weatherCode'
-import type { MapLibreMap} from 'maplibre-gl';
-import { Marker } from 'maplibre-gl'
+import type { MapLibreMap } from 'maplibre-gl'
+import { loadMapLibre } from '@/utils/maplibre'
 import type { EChartsOption } from 'echarts'
 
 // 未上導覽列的內部驗收頁，用來一眼確認共用視覺元件（圖表/地圖/天氣圖示/色階）都正常運作
@@ -54,7 +54,8 @@ const tempSteps = [-1, -0.6, -0.3, 0, 0.3, 0.6, 1]
 const windSteps = [0, 0.2, 0.4, 0.6, 0.8, 1]
 const intensityLabels = ['0級', '2級', '4級', '5弱', '5強', '6弱', '6強', '7級']
 
-function onMapReady(map: MapLibreMap) {
+async function onMapReady(map: MapLibreMap) {
+  const { Marker } = await loadMapLibre()
   new Marker({ color: CATEGORICAL[0] }).setLngLat([121.5654, 25.033]).addTo(map)
 }
 </script>

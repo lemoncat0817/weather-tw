@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, shallowRef, useTemplateRef } from 'vue'
-// maplibre-gl 沒有 default export，且它的 Map 類別跟全域 JS 內建的 Map 撞名，
-// 用它自己提供的別名 MapLibreMap 避開
-import { MapLibreMap, NavigationControl, type StyleSpecification } from 'maplibre-gl'
+// 只 import 型別（編譯後會被抹除）；實作走 @/utils/maplibre 的動態 import，理由與
+// 實測數字見該檔案的說明。maplibre-gl 沒有 default export，且它的 Map 類別跟全域 JS
+// 內建的 Map 撞名，用它自己提供的別名 MapLibreMap 避開
+import type { MapLibreMap, StyleSpecification } from 'maplibre-gl'
+import { loadMapLibre } from '@/utils/maplibre'
+// 樣式表留靜態 import：CSS 會被抽成這個元件所屬路由的 chunk，只有有地圖的頁面才載入，
+// 而且要在地圖畫出來的同一輪就生效，不適合延後
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const props = withDefaults(
@@ -24,11 +28,17 @@ const emit = defineEmits<{
 const config = useRuntimeConfig()
 const container = useTemplateRef<HTMLDivElement>('container')
 const map = shallowRef<MapLibreMap | null>(null)
+// 動態載入期間元件可能就被卸載了（使用者快速切頁），此時不能再建地圖，否則會留下
+// 一個沒人 remove()、持續佔著 WebGL context 與圖磚請求的孤兒實例
+let unmounted = false
 
-onMounted(() => {
+onMounted(async () => {
   if (!container.value) return
 
-  const instance = new MapLibreMap({
+  const { MapLibreMap: MapLibreMapCtor, NavigationControl } = await loadMapLibre()
+  if (unmounted || !container.value) return
+
+  const instance = new MapLibreMapCtor({
     container: container.value,
     style: (props.styleUrl ?? config.public.mapStyleUrl) as string | StyleSpecification,
     center: props.center,
@@ -63,6 +73,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
   map.value?.remove()
   map.value = null
 })

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
-import * as echarts from 'echarts/core'
+// 只 import 型別（編譯後會被完全抹除），實作走 loadECharts() 的延遲載入——
+// 靜態 import 會把約 207 KB gzip 的 ECharts 打進所有路由共用的 chunk 與 SSR bundle，
+// 理由與實測數字見 app/utils/echarts.ts 的說明
 import type { EChartsOption, ECharts } from 'echarts'
+import { loadECharts } from '@/utils/echarts'
 
 // 不用 vue-echarts：實測它的 autoresize + option 套用時序在巢狀 CSS Grid 版面下會卡住
 // （ResizeObserver 判斷「初次尺寸沒變化就跳過」，加上 option 套用被排進另一個 nextTick，
@@ -32,6 +35,9 @@ const mergedOption = computed<EChartsOption>(() => ({
 const container = useTemplateRef<HTMLDivElement>('container')
 const chart = shallowRef<ECharts | null>(null)
 let resizeObserver: ResizeObserver | null = null
+// 動態載入是非同步的，中間可能被卸載、或 watch 又被觸發一次，兩個旗標各擋一種情況
+let initializing = false
+let unmounted = false
 
 // 不能用 onMounted：<div ref="container"> 包在 <ClientOnly> 裡面，ClientOnly 先渲染
 // #fallback，要等它自己掛載完、下一輪更新才會換成真正的內容——BaseChart 自己的
@@ -40,17 +46,30 @@ let resizeObserver: ResizeObserver | null = null
 // 改成 watch container ref 本身，不管它何時才變成非 null 都能正確初始化。
 watch(
   container,
-  (el) => {
-    if (!el || chart.value) return
+  async (el) => {
+    if (!el || chart.value || initializing) return
+    initializing = true
 
-    const instance = echarts.init(el, 'app-dark')
+    const echarts = await loadECharts()
+
+    // await 期間元件可能已經卸載、容器也可能被 ClientOnly 換掉，重新取現值再判斷
+    const target = container.value
+    if (unmounted || !target) {
+      initializing = false
+      return
+    }
+
+    const instance = echarts.init(target, 'app-dark')
     chart.value = instance
+    // 用「現在」的 option 而不是 watch 觸發當下那份：動態載入期間 props 可能已經更新
     instance.setOption(mergedOption.value)
+    if (props.loading) instance.showLoading()
 
     resizeObserver = new ResizeObserver(() => {
-      if (el.offsetWidth > 0 && el.offsetHeight > 0) instance.resize()
+      if (target.offsetWidth > 0 && target.offsetHeight > 0) instance.resize()
     })
-    resizeObserver.observe(el)
+    resizeObserver.observe(target)
+    initializing = false
   },
   { immediate: true }
 )
@@ -68,7 +87,9 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  unmounted = true
   resizeObserver?.disconnect()
+  resizeObserver = null
   chart.value?.dispose()
   chart.value = null
 })

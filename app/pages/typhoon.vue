@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
-import { Popup, type MapLibreMap } from 'maplibre-gl'
+import type { MapLibreMap } from 'maplibre-gl'
+import { loadMapLibre } from '@/utils/maplibre'
 import type { Typhoon, TyphoonFixPoint, TyphoonAdvisory, GeoFeatureCollection, GeoPoint } from '#shared/types'
 import { buildTyphoonIntensityOption } from '@/utils/typhoonChart'
 import { windSpeedColorExpression } from '@/utils/mapColorExpression'
@@ -120,10 +121,12 @@ function renderTyphoon(map: MapLibreMap, typhoon: Typhoon) {
     }
   })
 
-  map.on('click', POINTS_LAYER, (e) => {
+  map.on('click', POINTS_LAYER, async (e) => {
     const f = e.features?.[0]
     if (!f || f.geometry.type !== 'Point') return
     const props = f.properties as { windSpeed: number; pressure: number | null; time: string; kind: string }
+    // 地圖已經在畫面上，maplibre 模組必然載入過了，這個 await 是模組快取的同步命中
+    const { Popup } = await loadMapLibre()
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(

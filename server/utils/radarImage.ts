@@ -26,17 +26,20 @@ export async function readStoredRadarImage(time: string): Promise<Uint8Array | n
 }
 
 /**
- * 把指定影格的 PNG 抓進 storage。frames handler 每次刷新 metadata 時對「新加入」的
- * 影格呼叫一次，讓後續 `/api/radar/image?t=...` 只讀快取、不必再打 S3。
- * 該影格已經存過就跳過；下載失敗不往外丟，frames JSON 還是要能回。
+ * 把指定影格的 PNG 抓進 storage，讓後續 `/api/radar/image?t=...` 只讀快取、不必再打 S3。
+ * 下載失敗不往外丟，frames JSON 還是要能回。
+ *
+ * 這裡刻意**不**自己檢查「是不是已經存過」——unstorage 的 cloudflare-kv-binding 驅動
+ * 不管是 getItemRaw 還是 hasItem，底層都是 `KV.get(key)`，也就是為了回答一個布林值而
+ * 把整整 384 KB 的 PNG 從 KV 讀出來一次。兩個呼叫端本來就都已經知道答案了：
+ * frames handler 只對「這一輪新加入」的影格呼叫，image handler 只在讀不到快取時呼叫。
+ * 由呼叫端判斷，可以完全省掉這筆讀取。
  */
 export async function persistRadarImage(frame: RadarFrame): Promise<void> {
   // 只抓上游 https URL；若 storage 裡誤放了同源代理路徑，避免伺服器自己打自己
   if (!frame.imageUrl.startsWith('https://')) return
   const storage = useStorage('cache')
   const key = radarImageKey(frame.time)
-  const existing = toUint8Array(await storage.getItemRaw(key))
-  if (existing && existing.byteLength > 0) return
 
   try {
     const buf = await $fetch<ArrayBuffer>(frame.imageUrl, {

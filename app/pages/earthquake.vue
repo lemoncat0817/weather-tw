@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
-import { Marker, Popup, type MapLibreMap, type GeoJSONSource, type ExpressionSpecification } from 'maplibre-gl'
+import type { MapLibreMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl'
+import { loadMapLibre } from '@/utils/maplibre'
 import type { Earthquake, EarthquakeStation, GeoFeatureCollection, GeoPoint } from '#shared/types'
 import { buildIntensityBarOption } from '@/utils/earthquakeChart'
 import { seismicIntensityColor } from '@/utils/colorScales'
@@ -83,10 +84,12 @@ function renderStations(map: MapLibreMap, eq: Earthquake) {
     }
   })
 
-  map.on('click', STATIONS_LAYER, (e) => {
+  map.on('click', STATIONS_LAYER, async (e) => {
     const f = e.features?.[0]
     if (!f || f.geometry.type !== 'Point') return
     const props = f.properties as unknown as EarthquakeStation
+    // 地圖已經在畫面上，maplibre 模組必然載入過了，這個 await 是模組快取的同步命中
+    const { Popup } = await loadMapLibre()
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
@@ -99,7 +102,7 @@ function renderStations(map: MapLibreMap, eq: Earthquake) {
   map.on('mouseleave', STATIONS_LAYER, () => (map.getCanvas().style.cursor = ''))
 }
 
-function placeMarker(map: MapLibreMap, eq: Earthquake) {
+async function placeMarker(map: MapLibreMap, eq: Earthquake) {
   marker.value?.remove()
   const radius = 12 + eq.magnitude * 3
   const el = document.createElement('div')
@@ -109,18 +112,20 @@ function placeMarker(map: MapLibreMap, eq: Earthquake) {
   el.style.backgroundColor = seismicIntensityColor(eq.maxIntensity)
   el.style.opacity = '0.75'
   el.style.border = '2px solid #05070d'
-  marker.value = new Marker({ element: el }).setLngLat([eq.epicenter.lon, eq.epicenter.lat]).addTo(map)
+  // 地圖已經在畫面上，maplibre 模組必然載入過了，這個 await 是模組快取的同步命中
+  const { Marker: MarkerCtor } = await loadMapLibre()
+  marker.value = new MarkerCtor({ element: el }).setLngLat([eq.epicenter.lon, eq.epicenter.lat]).addTo(map)
   renderStations(map, eq)
   map.flyTo({ center: [eq.epicenter.lon, eq.epicenter.lat], zoom: 7, animate: false })
 }
 
 function onMapReady(map: MapLibreMap) {
   mapInstance.value = map
-  if (selected.value) placeMarker(map, selected.value)
+  if (selected.value) void placeMarker(map, selected.value)
 }
 
 watch(selected, (eq) => {
-  if (mapInstance.value && eq) placeMarker(mapInstance.value, eq)
+  if (mapInstance.value && eq) void placeMarker(mapInstance.value, eq)
 })
 </script>
 

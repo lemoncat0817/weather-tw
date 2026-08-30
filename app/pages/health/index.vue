@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { Popup, type MapLibreMap, type GeoJSONSource } from 'maplibre-gl'
+import type { MapLibreMap, GeoJSONSource } from 'maplibre-gl'
+import { loadMapLibre } from '@/utils/maplibre'
 import type { GeoFeatureCollection, GeoPolygon, HeatInjuryTownForecast } from '#shared/types'
 import { heatInjuryColorExpression } from '@/utils/mapColorExpression'
 import { heatInjuryColor } from '@/utils/colorScales'
@@ -21,7 +22,18 @@ const LEGEND_LEVELS = [
   { key: 'high-danger', label: '高危險' }
 ] as const
 
-const { data: towns, status } = await useFetch<HeatInjuryTownForecast[]>('/api/health/heat/summary')
+// 刻意不 SSR：368 鄉鎮 × 39 個時間點的完整序列，伺服器端渲染出來的內容其實只有一個
+// 空的地圖容器（表格預設收合），卻要把整份資料塞進 SSR payload——實測 /health 的 HTML
+// 690 KB、payload 600 KB，全部都是 hydration 時要重新 parse 一遍、但畫面上一個字都沒用到
+// 的東西。改成瀏覽器端抓，HTML 縮到 15 KB 左右，頁面骨架立刻出現，資料到了再補上。
+// 頁面本來就有載入中的狀態顯示，使用者體驗不變。
+const { data: towns, status } = useFetch<HeatInjuryTownForecast[]>('/api/health/heat/summary', { server: false })
+
+// 載入中／載入失敗的判斷刻意看 `towns` 而不是 `status`：`server: false` 的請求在伺服器端
+// 根本不會發動，status 停在 'idle'，但瀏覽器 hydration 那一輪它已經變成 'pending'——
+// 兩邊若用 status 分流就會走到不同分支，Vue 會報 hydration mismatch。`towns` 在伺服器端
+// 和 hydration 當下都還是 null，兩邊一致，等資料真的回來才切換到內容。
+const isLoading = computed(() => !towns.value && status.value !== 'error')
 
 // 39 個時間點對所有鄉鎮都一致（同一批 issue time），取第一個鄉鎮的時間軸代表全部即可
 const times = computed(() => towns.value?.[0]?.readings.map((r) => r.time) ?? [])
@@ -87,12 +99,14 @@ function renderMap(map: MapLibreMap) {
     paint: { 'line-color': 'rgba(148, 163, 184, 0.25)', 'line-width': 0.5 }
   })
 
-  map.on('click', FILL_LAYER, (e) => {
+  map.on('click', FILL_LAYER, async (e) => {
     const f = e.features?.[0]
     if (!f) return
     const props = f.properties as { county: string; town: string; index: number; level: string }
     const label = HEAT_INJURY_LEVEL_LABEL[props.level] ?? props.level
     const href = `/health/${encodeURIComponent(props.county)}/${encodeURIComponent(props.town)}`
+    // 地圖已經在畫面上，maplibre 模組必然載入過了，這個 await 是模組快取的同步命中
+    const { Popup } = await loadMapLibre()
     new Popup()
       .setLngLat(e.lngLat)
       .setHTML(
@@ -127,8 +141,12 @@ watch(towns, () => {
 
 <template>
   <div class="space-y-4">
-    <div v-if="status === 'pending'" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+    <div v-if="isLoading" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
       載入熱傷害指數中…
+    </div>
+
+    <div v-else-if="!towns" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      無法載入熱傷害指數，請稍後再試。
     </div>
 
     <template v-else>

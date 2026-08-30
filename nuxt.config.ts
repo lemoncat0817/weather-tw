@@ -27,6 +27,21 @@ export default defineNuxtConfig({
     optimizeDeps: { exclude: ['maplibre-gl'] }
   },
 
+  // Nitro 對 public/ 底下的檔案預設只送 ETag、不送 Cache-Control，等於每一次載入都要多一趟
+  // 條件式請求才知道「沒變」。這幾個檔案的內容只會在改版時才動，而且都不小：
+  // maplibre 的 worker + shared 合計 500 KB（每個有地圖的頁面都要載）、鄉鎮邊界 402 KB
+  // （/health 每次進頁都抓、/map 開鄉鎮圖層時也抓）。明確給快取時間可以省掉這些往返。
+  // 檔名沒有內容雜湊（public/ 的檔案不會被加 hash），所以不用 immutable；用
+  // stale-while-revalidate 讓改版後仍能在背景更新，使用者不會卡在等新檔案。
+  // 相對的，/_nuxt/** 的檔名本來就帶內容雜湊，Nuxt 預設已經給了 max-age=31536000, immutable，
+  // 不需要在這裡重複設定（實測確認過）。
+  routeRules: {
+    '/data/**': { headers: { 'cache-control': 'public, max-age=86400, stale-while-revalidate=604800' } },
+    '/maplibre-gl-worker.mjs': { headers: { 'cache-control': 'public, max-age=86400, stale-while-revalidate=604800' } },
+    '/maplibre-gl-shared.mjs': { headers: { 'cache-control': 'public, max-age=86400, stale-while-revalidate=604800' } },
+    '/Weather.svg': { headers: { 'cache-control': 'public, max-age=604800' } }
+  },
+
   app: {
     // 克制的頁面切換效果（純淡入淡出，不做位移/縮放），且 main.css 的 prefers-reduced-motion
     // 規則對所有 transition-duration 都強制歸零，這裡不用另外判斷

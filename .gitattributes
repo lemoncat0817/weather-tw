@@ -1,0 +1,2 @@
+# Exclude public static vendor assets and datasets from GitHub language statistics
+public/** linguist-vendored

@@ -65,6 +65,8 @@ export default defineNuxtConfig({
   // 氣象資料只在伺服器端向 CWA 抓取，前端只吃 server/api/** 正規化過的乾淨格式
   runtimeConfig: {
     cwaApiKey: '',
+    // 環境部空氣品質資料的金鑰，跟 cwaApiKey 同一個理由只在伺服器端讀取（見 server/utils/moenv.ts）
+    moenvApiKey: '',
     public: {
       // OpenFreeMap 的免金鑰深色 vector style（見 https://openfreemap.org），
       // 無需註冊、無流量限制；可用 NUXT_PUBLIC_MAP_STYLE_URL 覆寫成自架的 style
@@ -104,6 +106,11 @@ export default defineNuxtConfig({
       if (nuxt.options.dev && !process.env.NUXT_CWA_API_KEY) {
         console.warn(
           '[weather-tw] 未設定 NUXT_CWA_API_KEY，本地無法獲取氣象資料。請於 .env 填入金鑰（https://opendata.cwa.gov.tw）。'
+        )
+      }
+      if (nuxt.options.dev && !process.env.NUXT_MOENV_API_KEY) {
+        console.warn(
+          '[weather-tw] 未設定 NUXT_MOENV_API_KEY，本地無法獲取空氣品質資料。請於 .env 填入金鑰（https://data.moenv.gov.tw）。'
         )
       }
     }

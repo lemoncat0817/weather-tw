@@ -59,3 +59,13 @@ export function seismicIntensityColorExpression(field: string, colorFn: (label: 
   const cases = levels.flatMap((level) => [level, colorFn(level)])
   return ['match', ['get', field], ...cases, colorFn('0級')] as unknown as ExpressionSpecification
 }
+
+/**
+ * AQI 分類專用：跟熱傷害等級一樣是離散字串，不能用 interpolate，改用 match expression
+ * 逐一列舉；colorFn 吃法跟 colorScales.airQualityColor 一致。
+ */
+export function airQualityColorExpression(field: string, colorFn: (level: string) => string): ExpressionSpecification {
+  const levels = ['good', 'moderate', 'unhealthy-sensitive', 'unhealthy', 'very-unhealthy', 'hazardous']
+  const cases = levels.flatMap((level) => [level, colorFn(level)])
+  return ['match', ['get', field], ...cases, colorFn('unavailable')] as unknown as ExpressionSpecification
+}

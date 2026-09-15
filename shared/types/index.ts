@@ -574,3 +574,40 @@ export interface TideForecast {
   location: TideLocation
   days: TideDay[]
 }
+
+// ---------------------------------------------------------------------------
+// 空氣品質（環境部環境資料開放平臺，非 CWA；AQX_P_432 即時 AQI ＋ AQX_P_07 測站資料）
+// ---------------------------------------------------------------------------
+
+/** 環境部官方六級 AQI 分類（依 status 欄位的中文字串對應）；'unavailable' 對應測站
+ *  維護或缺值時的空字串，不是硬塞成某個等級。 */
+export type AirQualityLevel =
+  | 'good'
+  | 'moderate'
+  | 'unhealthy-sensitive'
+  | 'unhealthy'
+  | 'very-unhealthy'
+  | 'hazardous'
+  | 'unavailable'
+
+/**
+ * 單一測站的即時空氣品質（AQX_P_432 跟測站座標 AQX_P_07 join 後的結果）。AQX_P_432 本身
+ * 沒有座標欄位，只能用測站名稱對照——找不到對應座標的測站會在 normalizer 階段被濾掉，
+ * 不會出現在這裡。
+ */
+export interface AirQualityStation {
+  siteName: string
+  county: string
+  coordinates: Coordinates
+  aqi: number | null
+  level: AirQualityLevel
+  /** 首要污染物（原始 pollutant 欄位），無資料或狀態良好時為 null */
+  majorPollutant: string | null
+  pm25: number | null
+  pm10: number | null
+  o3: number | null
+  so2: number | null
+  co: number | null
+  no2: number | null
+  publishTime: string
+}

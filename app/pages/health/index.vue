@@ -133,7 +133,7 @@ function renderMap(map: MapLibreMap) {
     new Popup()
       .setLngLat(e.lngLat)
       .setHTML(
-        `<div style="color:#0f172a"><strong>${props.county}${props.town}</strong><br/>指數 ${props.index}・${label}<br/><a href="${href}" style="color:#0284c7">查看逐時變化 →</a></div>`
+        `<div><strong>${props.county}${props.town}</strong><br/>指數 ${props.index}・${label}<br/><a href="${href}" style="color:var(--color-accent)">查看逐時變化 →</a></div>`
       )
       .addTo(map)
   })

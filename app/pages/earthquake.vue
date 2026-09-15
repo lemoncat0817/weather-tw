@@ -106,7 +106,7 @@ function renderStations(map: MapLibreMap, eq: Earthquake) {
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
-        `<div style="color:#0f172a"><strong>${props.stationName}</strong><br/>震度 ${props.seismicIntensity || '—'}` +
+        `<div><strong>${props.stationName}</strong><br/>震度 ${props.seismicIntensity || '—'}` +
           `${props.pga !== null ? `<br/>PGA ${props.pga} gal` : ''}<br/>距震央 ${props.epicenterDistance} km</div>`
       )
       .addTo(map)

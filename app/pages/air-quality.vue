@@ -106,7 +106,7 @@ function renderStations(map: MapLibreMap) {
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
-        `<div style="color:#0f172a"><strong>${props.siteName}</strong><br/>AQI ${props.aqi ?? '—'}・${label}` +
+        `<div><strong>${props.siteName}</strong><br/>AQI ${props.aqi ?? '—'}・${label}` +
           `${props.majorPollutant ? `<br/>首要污染物：${props.majorPollutant}` : ''}</div>`
       )
       .addTo(map)

@@ -59,6 +59,32 @@ body {
   opacity: 0;
 }
 
+/* MapLibre popup 預設是白底氣泡框，跟全站深色儀表板衝突——這裡疊上跟卡片一致的 surface/border/text
+   token。maplibre-gl.css 是各頁面元件自己動態 import 的（見 BaseMap.vue），跟這支全域樣式表誰先
+   誰後由 Vite 的 chunk 順序決定、不保證這支後載入，光靠選擇器順序贏不了同specificity 的
+   .maplibregl-popup-content / .maplibregl-popup-tip，tip 的方向變化版本（如
+   .maplibregl-popup-anchor-top .maplibregl-popup-tip）specificity 還更高，所以這裡用 !important
+   確保蓋得掉，不是隨手亂加。 */
+.maplibregl-popup-content {
+  background: var(--color-surface-1) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--color-surface-1) !important;
+  border-bottom-color: var(--color-surface-1) !important;
+  border-left-color: var(--color-surface-1) !important;
+  border-right-color: var(--color-surface-1) !important;
+}
+.maplibregl-popup-close-button {
+  color: var(--color-text-secondary) !important;
+}
+.maplibregl-popup-close-button:hover {
+  color: var(--color-text-primary) !important;
+  background-color: var(--color-surface-2) !important;
+}
+
 /* 尊重使用者的減少動態偏好 */
 @media (prefers-reduced-motion: reduce) {
   *,

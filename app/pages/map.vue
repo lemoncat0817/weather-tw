@@ -171,7 +171,7 @@ function setupStations(map: MapLibreMap) {
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
-        `<div style="color:#0f172a"><strong>${props.stationName}</strong><br/>${props.county}${props.town}<br/>${props.temperature}°C</div>`
+        `<div><strong>${props.stationName}</strong><br/>${props.county}${props.town}<br/>${props.temperature}°C</div>`
       )
       .addTo(map)
   })

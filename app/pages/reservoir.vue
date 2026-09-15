@@ -91,7 +91,7 @@ function renderStations(map: MapLibreMap) {
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
-        `<div style="color:#0f172a"><strong>${props.name}</strong><br/>蓄水率 ${props.storagePercentage ?? '—'}%` +
+        `<div><strong>${props.name}</strong><br/>蓄水率 ${props.storagePercentage ?? '—'}%` +
           `<br/>水位 ${props.waterLevel ?? '—'} m</div>`
       )
       .addTo(map)

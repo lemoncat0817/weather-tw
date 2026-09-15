@@ -130,7 +130,7 @@ function renderTyphoon(map: MapLibreMap, typhoon: Typhoon) {
     new Popup()
       .setLngLat(f.geometry.coordinates as [number, number])
       .setHTML(
-        `<div style="color:#0f172a">${formatTaipei(props.time)}<br/>最大風速 ${props.windSpeed} m/s${props.pressure ? `<br/>氣壓 ${props.pressure} hPa` : ''}</div>`
+        `<div>${formatTaipei(props.time)}<br/>最大風速 ${props.windSpeed} m/s${props.pressure ? `<br/>氣壓 ${props.pressure} hPa` : ''}</div>`
       )
       .addTo(map)
   })

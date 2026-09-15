@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
@@ -65,15 +65,14 @@ const nearestAirQuality = computed(() => {
   return nearestAirQualityStation(coordinates, stations)
 })
 
-// server:false 的 fetch 一進 client 端 setup() 就會同步把 status 從 idle 轉成 pending，
-// 但 SSR 端整段 fetch 直接跳過、status 停在 idle——若 v-if 直接拿 status 判斷，會讓 SSR 出來
-// 的 HTML（idle → 不顯示）跟 client 第一輪 render（pending → 顯示）對不上，觸發 hydration
-// mismatch（實測 console 真的會噴 "Hydration node mismatch"）。用 onMounted 延遲翻成 true，
-// 讓這個判斷只在 hydration 比對完成之後才生效，兩邊第一輪 render 都是 false，不會對不上
-const mounted = ref(false)
-onMounted(() => {
-  mounted.value = true
-})
+// 「還沒有結果」的兩種狀態，模板用它決定要不要顯示讀取中的佔位。一定要同時涵蓋 idle 與
+// pending，這是 server:false 在 SSR 下的狀態時序決定的（Nuxt 4.5 asyncData.js）：SSR 端整段
+// fetch 跳過、status 停在 idle；client 端這支 fetch 被排進 onBeforeMount 而不是 setup()，而
+// Vue 的順序是 setup → beforeMount（fetch 發動，status 轉 pending）→ 第一次 render（hydration
+// 比對）。所以 SSR 是 idle、client 第一輪 render 是 pending，只認其中一種就會兩邊對不上，
+// 觸發 hydration mismatch；兩種都認才會一致，而且佔位文字能直接寫進 SSR 的 HTML，
+// 使用者不用等整包 JS 下載完就看得到（開發模式未打包時那段等待特別久）
+const airQualityLoading = computed(() => airQualityStatus.value === 'idle' || airQualityStatus.value === 'pending')
 
 const ACTIVE_WARNINGS_COLLAPSE_AT = 5
 const activeWarnings = computed(() => (warnings.value ?? []).filter((w) => w.hazards.length > 0))
@@ -238,16 +237,10 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
           <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
           <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
           <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
-          <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉。idle 也要蓋到，
-               不能只顯示 pending：這個 server:false 的 fetch 在 setup() 就註冊好，但要等
-               loadECharts 之外的整批 JS 模組（開發模式下是逐一發送、未打包）載入完才會真的
-               被送出去，掛載完成（mounted 翻 true）到 fetch 真正送出去中間有一段 idle 空窗，
-               只蓋 pending 蓋不到這段，徽章會完全消失——實測 Slow 3G 底下量到這個空窗
-               長達數秒。抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
-          <span
-            v-if="mounted && (airQualityStatus === 'idle' || airQualityStatus === 'pending')"
-            class="flex items-center gap-1 text-text-muted"
-          >
+          <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉；
+               airQualityLoading 同時涵蓋 idle/pending 的理由見上面宣告處。
+               抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
+          <span v-if="airQualityLoading" class="flex items-center gap-1 text-text-muted">
             <span>空氣品質</span>
             <span>…</span>
           </span>

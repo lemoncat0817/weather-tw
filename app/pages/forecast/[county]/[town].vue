@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
@@ -39,11 +39,8 @@ const nearestAirQuality = computed(() => {
   return nearestAirQualityStation(coordinates, stations)
 })
 
-// 同一個 hydration mismatch 陷阱，理由見 index.vue 同樣的寫法
-const mounted = ref(false)
-onMounted(() => {
-  mounted.value = true
-})
+// 必須同時涵蓋 idle 與 pending，理由見 index.vue 同樣的寫法
+const airQualityLoading = computed(() => airQualityStatus.value === 'idle' || airQualityStatus.value === 'pending')
 
 useSeoMeta({
   title: () => `${town.value}天氣預報 — 氣象知多少`,
@@ -116,12 +113,7 @@ const current = computed(() => {
           <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
-          <!-- idle 也要蓋到，理由見 index.vue 同樣的寫法：mounted 翻 true 到 fetch 真正送出去
-               中間有一段 idle 空窗，只蓋 pending 蓋不到，徽章會整個消失 -->
-          <span
-            v-if="mounted && (airQualityStatus === 'idle' || airQualityStatus === 'pending')"
-            class="flex items-center gap-1 text-text-muted"
-          >
+          <span v-if="airQualityLoading" class="flex items-center gap-1 text-text-muted">
             <span>空氣品質</span>
             <span>…</span>
           </span>

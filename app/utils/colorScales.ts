@@ -100,15 +100,16 @@ export function seismicIntensityColor(label: string): string {
   return interpolateHexRamp(SEVERITY_RAMP, i / (INTENSITY_LEVELS.length - 1))
 }
 
-// CWA 熱傷害指數（M-A0085-001）的四級官方警示（注意/警戒/危險/高危險）剛好對應
-// SEVERITY_RAMP 的四個錨點，不需要插值，直接索引即可
-const HEAT_INJURY_WARNING_LEVELS = ['caution', 'watch', 'danger', 'high-danger'] as const
+// CWA 健康氣象系列（熱傷害 M-A0085-001、冷傷害 F-A0085-003、溫差提醒 F-A0085-005）共用同一套
+// 四級官方警示（注意/警戒/危險/高危險），剛好對應 SEVERITY_RAMP 的四個錨點，不需要插值，直接索引即可
+const HEALTH_INDEX_WARNING_LEVELS = ['caution', 'watch', 'danger', 'high-danger'] as const
 // 「無警示」不是 SEVERITY_RAMP 最低階（那一階代表「注意」），用低調的中性灰跟四級警示區分開，
 // 避免使用者誤讀成「安全」——這只是「未達警示門檻」，不是官方保證的安全等級
-const HEAT_INJURY_NONE_COLOR = '#334155'
+const HEALTH_INDEX_NONE_COLOR = '#334155'
 
-/** 熱傷害警示等級（'none' | 'caution' | 'watch' | 'danger' | 'high-danger'）→ 顏色 */
-export function heatInjuryColor(level: string): string {
-  const i = HEAT_INJURY_WARNING_LEVELS.indexOf(level as (typeof HEAT_INJURY_WARNING_LEVELS)[number])
-  return SEVERITY_RAMP[i] ?? HEAT_INJURY_NONE_COLOR
+/** 健康氣象警示等級（'none' | 'caution' | 'watch' | 'danger' | 'high-danger'）→ 顏色。
+ *  三個健康氣象因子（熱傷害/冷傷害/溫差提醒）共用同一套四級配色。 */
+export function healthIndexColor(level: string): string {
+  const i = HEALTH_INDEX_WARNING_LEVELS.indexOf(level as (typeof HEALTH_INDEX_WARNING_LEVELS)[number])
+  return SEVERITY_RAMP[i] ?? HEALTH_INDEX_NONE_COLOR
 }

@@ -39,10 +39,11 @@ export function windSpeedColorExpression(field: string, colorFn: (t: number) => 
 }
 
 /**
- * 熱傷害等級專用：level 是離散字串（'none'/'caution'/...），不是連續數值，不能用 interpolate，
- * 改用 MapLibre 的 match expression 逐一列舉；colorFn 吃法跟 colorScales.heatInjuryColor 一致。
+ * 健康氣象等級專用（熱傷害/冷傷害/溫差提醒共用）：level 是離散字串（'none'/'caution'/...），
+ * 不是連續數值，不能用 interpolate，改用 MapLibre 的 match expression 逐一列舉；
+ * colorFn 吃法跟 colorScales.healthIndexColor 一致。
  */
-export function heatInjuryColorExpression(field: string, colorFn: (level: string) => string): ExpressionSpecification {
+export function healthIndexColorExpression(field: string, colorFn: (level: string) => string): ExpressionSpecification {
   const levels = ['caution', 'watch', 'danger', 'high-danger']
   const cases = levels.flatMap((level) => [level, colorFn(level)])
   return ['match', ['get', field], ...cases, colorFn('none')] as unknown as ExpressionSpecification

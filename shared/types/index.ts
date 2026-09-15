@@ -93,6 +93,9 @@ export interface TownForecast {
   extended: TownForecastPeriod[]
   sunrise?: string
   sunset?: string
+  /** 當日月出／月沒（A-B0063-001）；null 表示該日確實無此現象（約每月一次），不是抓取失敗 */
+  moonrise?: string | null
+  moonset?: string | null
 }
 
 /** 全台鄉鎮預報摘要（choropleth 用），只取「目前」這一個時間點的代表值，不含完整逐時序列 */

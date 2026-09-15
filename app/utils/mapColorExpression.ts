@@ -92,3 +92,13 @@ export function reservoirStorageColorExpression(
     ['interpolate', ['linear'], ['get', field], ...stops]
   ] as unknown as ExpressionSpecification
 }
+
+/**
+ * 河川水位警戒等級專用：跟熱傷害等級一樣是離散字串，不能用 interpolate，改用 match
+ * expression 逐一列舉；colorFn 吃法跟 colorScales.riverAlertColor 一致。
+ */
+export function riverAlertColorExpression(field: string, colorFn: (level: string) => string): ExpressionSpecification {
+  const levels = ['normal', 'level3', 'level2', 'level1']
+  const cases = levels.flatMap((level) => [level, colorFn(level)])
+  return ['match', ['get', field], ...cases, colorFn('unavailable')] as unknown as ExpressionSpecification
+}

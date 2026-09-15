@@ -144,3 +144,16 @@ export function reservoirStorageColor(percentage: number | null): string {
   const t = Math.max(0, Math.min(1, percentage / 100))
   return interpolateHexRamp(SEVERITY_RAMP, 1 - t)
 }
+
+// 河川水位三級警戒（由低到高：level3 最先觸發、level1 最嚴重）直接對應 SEVERITY_RAMP
+// 的後三個錨點，'normal'（正常）對應最前面的 good，不需要插值
+const RIVER_ALERT_LEVELS = ['normal', 'level3', 'level2', 'level1'] as const
+// 'unavailable' 涵蓋兩種情況：這站根本沒公告警戒門檻，或讀值本身被標記為異常——
+// 跟其餘「無警示」同一支中性灰
+const RIVER_ALERT_UNAVAILABLE_COLOR = '#334155'
+
+/** 河川水位警戒等級（RiverAlertLevel）→ 顏色 */
+export function riverAlertColor(level: string): string {
+  const i = RIVER_ALERT_LEVELS.indexOf(level as (typeof RIVER_ALERT_LEVELS)[number])
+  return SEVERITY_RAMP[i] ?? RIVER_ALERT_UNAVAILABLE_COLOR
+}

@@ -631,3 +631,34 @@ export interface ReservoirStatus {
   inflow: number | null
   outflow: number | null
 }
+
+// ---------------------------------------------------------------------------
+// 河川即時水位（經濟部水利署水利資料開放平台，非 CWA；即時水位 + 河川水位測站站況）
+// ---------------------------------------------------------------------------
+
+/**
+ * 三級警戒門檻由低到高：level3 最先觸發（水位剛開始偏高），level1 最嚴重。跟 CWA
+ * 其餘四級警示（'none'|'caution'|'watch'|...）不同名，是因為官方本來就用「一二三級」
+ * 稱呼，硬套 CWA 那套用詞反而失真。'unavailable' 對應沒有門檻資料或讀值本身不可信
+ * （測站回報「近期水位變化超過 3.5m」「高於堤頂高」這類 QC 異常時，一律當作沒有讀值）。
+ */
+export type RiverAlertLevel = 'normal' | 'level3' | 'level2' | 'level1' | 'unavailable'
+
+/**
+ * 單一測站的即時水位（即時水位資料跟河川水位測站站況 join 後的結果）。只收錄站況資料
+ * 有座標、且能跟即時資料對上站號的測站——即時水位的 stationid（8 碼）是站況
+ * observatoryidentifier（帶流域前綴的長碼）的後 8 碼，兩邊格式不一致，見
+ * server/utils/normalize/river.ts 的 join 邏輯。
+ */
+export interface RiverStation {
+  id: string
+  name: string
+  river: string
+  coordinates: Coordinates
+  observationTime: string
+  waterLevel: number | null
+  alertLevel: RiverAlertLevel
+  /** 三級警戒門檻原始值（公尺），供 UI 顯示「目前水位 vs. 門檻」——不是每站都有齊三個，
+   *  常見只公告一到兩級 */
+  alertThresholds: { level1: number | null; level2: number | null; level3: number | null }
+}

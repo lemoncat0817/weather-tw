@@ -7,6 +7,7 @@ const navItems = [
   { to: '/observation', label: '觀測' },
   { to: '/air-quality', label: '空氣品質' },
   { to: '/reservoir', label: '水庫' },
+  { to: '/river', label: '河川' },
   { to: '/climate', label: '趨勢' },
   { to: '/warnings', label: '特報' },
   { to: '/health', label: '健康' },

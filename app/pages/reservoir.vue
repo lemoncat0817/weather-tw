@@ -162,7 +162,10 @@ watch(stations, () => {
                   <div class="h-2 w-24 shrink-0 overflow-hidden rounded-full bg-surface-2">
                     <div
                       class="h-full rounded-full"
-                      :style="{ width: `${s.storagePercentage ?? 0}%`, backgroundColor: reservoirStorageColor(s.storagePercentage) }"
+                      :style="{
+                        width: `${Math.min(s.storagePercentage ?? 0, 100)}%`,
+                        backgroundColor: reservoirStorageColor(s.storagePercentage)
+                      }"
                     />
                   </div>
                   <span class="tabular-nums text-text-secondary">{{ s.storagePercentage ?? '—' }}{{ s.storagePercentage !== null ? '%' : '' }}</span>
@@ -180,7 +183,8 @@ watch(stations, () => {
 
       <p class="text-xs text-text-muted">
         資料來源：<a href="https://opendata.wra.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">經濟部水利署水利資料開放平台</a>
-        （水庫水情、水庫基本資料），每 30 分鐘更新一次。蓄水率＝即時有效蓄水量 ÷ 最近一次測量的有效容量；
+        （水庫水情、水庫每日營運狀況），每 30 分鐘更新一次。蓄水率＝即時有效蓄水量 ÷ 有效庫容量
+        （已對照<a href="https://fhy.wra.gov.tw/fhyv2/monitor/reservoir" target="_blank" rel="noopener" class="hover:text-text-secondary">經濟部水利署防災資訊網</a>核對過分母來源）；
         進出流量單位依業界慣例標示為 CMS（立方公尺/秒），原始資料未逐欄位附單位說明。
       </p>
     </template>

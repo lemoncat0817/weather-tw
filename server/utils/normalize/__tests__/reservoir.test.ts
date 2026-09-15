@@ -48,16 +48,29 @@ const STATUS_RAW = [
   }
 ]
 
-// 節錄自實際回應：水庫基本資料，注意石門水庫的「目前有效容量」帶千分位逗號
+// 節錄自實際回應：水庫每日營運狀況。這兩個 capacity 值已對照經濟部水利署防災資訊網
+// （fhy.wra.gov.tw/fhyv2/monitor/reservoir）目前顯示的「有效庫容量」核對過，逐一相符——
+// 這支資料集才是官方看板實際使用的分母，不是另一支「水庫基本資料」（兩者是不同的數字，
+// 曾經因為誤用後者導致翡翠水庫算出 86.4% 但官方顯示 77.7%，見 normalizeReservoirCapacities
+// 的完整說明）
 const CAPACITY_RAW = [
-  { 水庫代碼: 10201, 目前有效容量: '20,441.10' },
-  { 水庫代碼: 10204, 目前有效容量: '996' }
+  { reservoiridentifier: '10201', capacity: '20526.0', datetime: '2026-09-14T00:00:00' },
+  { reservoiridentifier: '10204', capacity: '995.96', datetime: '2026-09-14T00:00:00' }
 ]
 
 describe('normalizeReservoirCapacities', () => {
-  it('把帶千分位逗號的容量字串轉成數字，用水庫代碼（數字轉字串）當 key', () => {
+  it('用水庫代碼當 key，讀出 capacity 欄位', () => {
     const capacities = normalizeReservoirCapacities(CAPACITY_RAW as never)
-    expect(capacities).toEqual({ '10201': 20441.1, '10204': 996 })
+    expect(capacities).toEqual({ '10201': 20526.0, '10204': 995.96 })
+  })
+
+  it('同一水庫混雜多個日期時，只取 datetime 最新的一筆', () => {
+    const raw = [
+      { reservoiridentifier: '10201', capacity: '20500.0', datetime: '2026-09-13T00:00:00' },
+      { reservoiridentifier: '10201', capacity: '20526.0', datetime: '2026-09-14T00:00:00' }
+    ]
+    const capacities = normalizeReservoirCapacities(raw as never)
+    expect(capacities['10201']).toBe(20526.0)
   })
 })
 
@@ -69,12 +82,20 @@ describe('normalizeReservoirStatuses', () => {
     expect(shimen).toMatchObject({ observationTime: '2026-09-15T16:00:00+08:00', waterLevel: 245.06, inflow: 35.1 })
   })
 
-  it('算出蓄水率＝即時有效蓄水量 ÷ 目前有效容量 × 100，四捨五入到小數點一位', () => {
+  it('算出蓄水率＝即時有效蓄水量 ÷ 有效庫容量 × 100，四捨五入到小數點一位', () => {
     const capacities = normalizeReservoirCapacities(CAPACITY_RAW as never)
     const stations = normalizeReservoirStatuses(STATUS_RAW as never, capacities)
     const xinshan = stations.find((s) => s.id === '10204')
-    // 924.14 / 996 * 100 = 92.79...
+    // 924.14 / 995.96 * 100 = 92.79...，跟官方看板目前顯示的 92.8% 一致
     expect(xinshan!.storagePercentage).toBe(92.8)
+  })
+
+  it('蓄水率可以合理超過 100%（兩個數字是水利署獨立維護、更新頻率不同的量測），不強行封頂', () => {
+    // 石門水庫：即時 20578.15 ÷ 有效庫容量 20526.0 = 100.25%，官方看板同一時間點也顯示破百
+    const capacities = normalizeReservoirCapacities(CAPACITY_RAW as never)
+    const stations = normalizeReservoirStatuses(STATUS_RAW as never, capacities)
+    const shimen = stations.find((s) => s.id === '10201')
+    expect(shimen!.storagePercentage).toBe(100.3)
   })
 
   it('找不到座標對照（RESERVOIR_COORDS 沒有這個代碼）的水庫直接濾掉', () => {

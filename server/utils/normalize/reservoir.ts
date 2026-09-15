@@ -18,8 +18,9 @@ interface WraReservoirStatusRecord {
 export type WraReservoirStatusResponse = WraReservoirStatusRecord[]
 
 interface WraReservoirCapacityRecord {
-  水庫代碼: number
-  目前有效容量: string
+  reservoiridentifier: string
+  capacity: string
+  datetime: string
 }
 export type WraReservoirCapacityResponse = WraReservoirCapacityRecord[]
 
@@ -38,16 +39,33 @@ function toTaipeiIso(naive: string): string {
 }
 
 /**
- * 水庫基本資料（容量規格，變動很慢——民國年一年一筆，不是即時資料）轉成
- * 「水庫代碼 → 目前有效容量」的查表，供即時水情算蓄水率時當分母。用「目前有效容量」
- * （最近一次測量，已扣掉淤積）而不是「設計有效容量」（興建當時的原始值）——水利署
- * 對外公告的蓄水率就是用前者，數十年淤積下來兩者差距在老水庫上可以很可觀。
+ * 水庫每日營運狀況（capacity 欄位）轉成「水庫代碼 → 有效庫容量」的查表，供即時水情
+ * 算蓄水率時當分母。
+ *
+ * 這支資料集不是第一次嘗試的選擇——最初用的是「水庫基本資料」的「目前有效容量」，
+ * 兩者聽起來像同一件事，實際上是水利署兩套獨立維護的容量數字，差距在部分水庫上
+ * 高達 6~10 個百分點以上（翡翠水庫：86.4% vs. 官方 77.7%；曾文水庫：96.4% vs.
+ * 官方 100%）。拿官方防災資訊網（fhy.wra.gov.tw/fhyv2/monitor/reservoir）目前
+ * 顯示的「有效庫容量」逐一核對後，這支「水庫每日營運狀況」的 capacity 才是官方看板
+ * 實際使用的分母——18 座水庫全數核對到小數點後一位完全吻合，不是巧合。
+ * 「水庫基本資料」很可能是年度公告用的規制容量，不是這套即時看板的即時參照值。
+ *
+ * 這支資料集實測是「一天一筆、不累積歷史」（不像水情本身混雜多個觀測時間點），
+ * 但這裡還是防禦性地只取每個水庫最新一筆，不假設上游行為不會變。
  */
 export function normalizeReservoirCapacities(raw: WraReservoirCapacityResponse): Record<string, number> {
-  const result: Record<string, number> = {}
+  const latestById = new Map<string, WraReservoirCapacityRecord>()
   for (const r of raw) {
-    const capacity = parseWraNumber(String(r.目前有效容量))
-    if (capacity !== null) result[String(r.水庫代碼)] = capacity
+    const existing = latestById.get(r.reservoiridentifier)
+    if (!existing || r.datetime > existing.datetime) {
+      latestById.set(r.reservoiridentifier, r)
+    }
+  }
+
+  const result: Record<string, number> = {}
+  for (const [id, r] of latestById) {
+    const capacity = parseWraNumber(r.capacity)
+    if (capacity !== null) result[id] = capacity
   }
   return result
 }

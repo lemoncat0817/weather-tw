@@ -109,6 +109,13 @@ onBeforeUnmount(() => {
   radarBitmaps.dispose()
 })
 
+// 溫度圖例：跟 temperatureColorExpression 用同一組定義域（15~35°C 對應 t∈[-1,1]），
+// 色票直接複用 colorScales.temperatureColor，不另外維護一組圖例專屬色階
+const TEMPERATURE_LEGEND_GRADIENT = computed(() => {
+  const stops = [-1, -0.5, 0, 0.5, 1].map((t) => `${temperatureColor(t)} ${((t + 1) / 2) * 100}%`)
+  return `linear-gradient(to right, ${stops.join(', ')})`
+})
+
 const RADAR_SOURCE = 'radar'
 const RADAR_LAYER = 'radar-layer'
 const STATIONS_SOURCE = 'stations'
@@ -366,6 +373,16 @@ watch(showSatellite, async (v) => {
       <span v-else-if="displayedRadarFrame" class="ml-auto text-xs text-text-muted">
         雷達影像時間：{{ formatTaipei(displayedRadarFrame.time) }}
       </span>
+    </div>
+
+    <div
+      v-if="showStations || showChoropleth"
+      class="flex flex-wrap items-center gap-3 rounded-lg bg-surface-1 px-4 py-2 text-xs text-text-secondary"
+    >
+      <span class="text-text-muted">溫度</span>
+      <span>15°C</span>
+      <span class="h-2 w-40 rounded-full" :style="{ backgroundImage: TEMPERATURE_LEGEND_GRADIENT }" />
+      <span>35°C</span>
     </div>
 
     <div class="flex-1 overflow-hidden rounded-lg bg-surface-1">

@@ -37,6 +37,7 @@ jobs:
         run: pnpm build:cloudflare
         env:
           NUXT_CWA_API_KEY: build-time-placeholder-not-the-real-key
+          NUXT_MOENV_API_KEY: build-time-placeholder-not-the-real-key
 
       # nitro 把實際的 wrangler.json 產在 .output/server/，但要用 --cwd .output 這個上一層目錄
       # 執行 wrangler 才能正確解析到「重新導向」的設定（nitro 自己也會在 build log 印出這個用法，
@@ -50,5 +51,7 @@ jobs:
           workingDirectory: .output
           secrets: |
             NUXT_CWA_API_KEY
+            NUXT_MOENV_API_KEY
         env:
           NUXT_CWA_API_KEY: ${{ secrets.NUXT_CWA_API_KEY }}
+          NUXT_MOENV_API_KEY: ${{ secrets.NUXT_MOENV_API_KEY }}

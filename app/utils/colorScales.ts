@@ -113,3 +113,23 @@ export function healthIndexColor(level: string): string {
   const i = HEALTH_INDEX_WARNING_LEVELS.indexOf(level as (typeof HEALTH_INDEX_WARNING_LEVELS)[number])
   return SEVERITY_RAMP[i] ?? HEALTH_INDEX_NONE_COLOR
 }
+
+// 環境部官方六級 AQI 分類（良好/普通/對敏感族群不健康/對所有族群不健康/非常不健康/危害），
+// 跟地震震度一樣是「多階、單調遞增的嚴重程度」，用同一招插值 SEVERITY_RAMP，不用另外發明色相
+const AIR_QUALITY_LEVELS = [
+  'good',
+  'moderate',
+  'unhealthy-sensitive',
+  'unhealthy',
+  'very-unhealthy',
+  'hazardous'
+] as const
+// 'unavailable'（測站維護或缺值）跟健康氣象的「無警示」同一支中性灰，避免誤讀成「良好」
+const AIR_QUALITY_UNAVAILABLE_COLOR = '#334155'
+
+/** AQI 分類（AirQualityLevel）→ 顏色 */
+export function airQualityColor(level: string): string {
+  const i = AIR_QUALITY_LEVELS.indexOf(level as (typeof AIR_QUALITY_LEVELS)[number])
+  if (i === -1) return AIR_QUALITY_UNAVAILABLE_COLOR
+  return interpolateHexRamp(SEVERITY_RAMP, i / (AIR_QUALITY_LEVELS.length - 1))
+}

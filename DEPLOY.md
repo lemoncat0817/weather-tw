@@ -10,7 +10,7 @@
 |---|---|
 | Nitro preset | `cloudflare-module`（由 `NITRO_PRESET` 環境變數啟用，非寫死） |
 | 快取後端 | Cloudflare KV，binding 名稱 `CACHE` |
-| 執行期密鑰 | `NUXT_CWA_API_KEY`（Worker secret，非建置期變數） |
+| 執行期密鑰 | `NUXT_CWA_API_KEY`、`NUXT_MOENV_API_KEY`（皆為 Worker secret，非建置期變數） |
 | 建置輸出 | `.output/`，Nitro 於此產生實際部署用的 `server/wrangler.json` |
 
 ---
@@ -20,6 +20,7 @@
 - Node.js ≥ 22、pnpm（見 `package.json` 的 `engines` / `packageManager`）
 - Cloudflare 帳號（免費方案即可）
 - CWA Open Data 金鑰，於 <https://opendata.cwa.gov.tw> 免費申請
+- 環境部空氣品質金鑰，於 <https://data.moenv.gov.tw> 免費申請
 
 ---
 
@@ -56,13 +57,15 @@ Repo → Settings → Secrets and variables → Actions：
 | `CLOUDFLARE_API_TOKEN` | Cloudflare Dashboard → My Profile → API Tokens → Create Token，套用「Edit Cloudflare Workers」範本 |
 | `CLOUDFLARE_ACCOUNT_ID` | 步驟 1 的 `wrangler whoami` 輸出，或 Dashboard 右側欄 |
 | `NUXT_CWA_API_KEY` | CWA Open Data 金鑰 |
+| `NUXT_MOENV_API_KEY` | 環境部空氣品質金鑰 |
 
 ### 4. 設定 Worker 執行期密鑰
 
-CI 會在每次部署時同步這個 secret，但若要從本機手動部署，需先自行設定一次：
+CI 會在每次部署時同步這兩個 secret，但若要從本機手動部署，需先自行設定一次：
 
 ```sh
 pnpm exec wrangler secret put NUXT_CWA_API_KEY --cwd .output
+pnpm exec wrangler secret put NUXT_MOENV_API_KEY --cwd .output
 ```
 
 ---
@@ -132,6 +135,7 @@ CI 刻意傳入佔位字串，真正的金鑰是另外推送給 Worker 執行期
 | 症狀 | 原因 | 處理 |
 |---|---|---|
 | 頁面顯示「伺服器尚未設定 CWA_API_KEY」 | Worker 執行期 secret 未設定或名稱錯誤 | 重跑首次設定步驟 4；確認名稱是 `NUXT_CWA_API_KEY` |
+| `/api/air-quality/**` 顯示「伺服器尚未設定環境部空氣品質金鑰」 | 同上，但是 `NUXT_MOENV_API_KEY` 那一支 | 同上，確認名稱是 `NUXT_MOENV_API_KEY` |
 | 地圖全黑，只剩控制項 | MapLibre worker 未被打包 | 確認 `public/maplibre-gl-worker.mjs` 與 `public/maplibre-gl-shared.mjs` 存在；升級 maplibre-gl 大版本後需從 `node_modules/maplibre-gl/dist/` 重新複製 |
 | wrangler 找不到設定檔 | 未加 `--cwd .output` | 見「從本機手動部署」的說明 |
 | 快取似乎沒生效 | KV namespace 未建立或 id 未填 | 見首次設定步驟 2 |

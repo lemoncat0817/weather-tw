@@ -47,3 +47,19 @@ export function tsunamiColorClass(reportColor: string): string {
       return 'bg-severity-advisory/15 text-severity-advisory'
   }
 }
+
+/** 土石流／大規模崩塌警戒（DebrisFlowAlertLevel）只有黃/紅兩級，直接對應同一組
+ *  --color-severity-* 分級。 */
+export function debrisFlowColorClass(level: string): string {
+  return level === 'red' ? 'bg-severity-emergency/15 text-severity-emergency' : 'bg-severity-watch/15 text-severity-watch'
+}
+
+export const DEBRIS_FLOW_LEVEL_LABEL: Record<string, string> = {
+  yellow: '黃色警戒',
+  red: '紅色警戒'
+}
+
+export const DEBRIS_FLOW_TYPE_LABEL: Record<string, string> = {
+  debris: '土石流',
+  landslide: '大規模崩塌'
+}

@@ -8,6 +8,7 @@ const navItems = [
   { to: '/air-quality', label: '空氣品質' },
   { to: '/reservoir', label: '水庫' },
   { to: '/river', label: '河川' },
+  { to: '/debris-flow', label: '土石流' },
   { to: '/climate', label: '趨勢' },
   { to: '/warnings', label: '特報' },
   { to: '/health', label: '健康' },
@@ -99,6 +100,7 @@ const mobileNavOpen = ref(false)
       資料來源：<a href="https://opendata.cwa.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">中央氣象署開放資料平台</a>
       ・<a href="https://data.moenv.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">環境部環境資料開放平臺</a>
       ・<a href="https://opendata.wra.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">經濟部水利署水利資料開放平台</a>
+      ・<a href="https://246.ardswc.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">農業部農村發展及水土保持署</a>
     </footer>
   </div>
 </template>

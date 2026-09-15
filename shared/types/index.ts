@@ -668,3 +668,43 @@ export interface RiverStation {
    *  常見只公告一到兩級 */
   alertThresholds: { level1: number | null; level2: number | null; level3: number | null }
 }
+
+// ---------------------------------------------------------------------------
+// 土石流／大規模崩塌警戒（農業部農村發展及水土保持署，非 CWA，全程免金鑰）
+// ---------------------------------------------------------------------------
+
+export type DebrisFlowAlertType = 'debris' | 'landslide'
+export type DebrisFlowAlertLevel = 'yellow' | 'red'
+
+/**
+ * 一筆土石流／大規模崩塌警戒發布紀錄。兩種類型的「名稱從哪來」不對稱，是上游資料集本身
+ * 的設計，不是疏漏：土石流警戒（type: 'debris'）沒有另外的可讀名稱欄位，id/name 都是
+ * 潛勢溪流編號本身（如「高市DF119」，縣市簡稱＋代碼，本身已經有可讀性）；大規模崩塌
+ * （type: 'landslide'）才有獨立的 id（崩塌區編號，如「DS009」）跟 name（崩塌區名稱，
+ * 如「屏東縣-來義鄉-T001(來義)」）。
+ *
+ * 這份資料只在有警戒發布時才有內容，平時是空陣列，不是每個縣市鄉鎮都對應得到一筆——
+ * 沒有座標資料可用（上游只用行政區＋代碼描述位置，精確位置只有年度版 shapefile 圖資，
+ * 這裡不處理），呈現方式是列表，不是地圖。
+ */
+export interface DebrisFlowAlert {
+  id: string
+  type: DebrisFlowAlertType
+  name: string
+  county: string
+  town: string
+  village: string | null
+  level: DebrisFlowAlertLevel
+  updateTime: string
+  reportId: string
+}
+
+/**
+ * active／recent 刻意分開回傳，不是同一份陣列各自切片：active 來自即時清單（平時是空
+ * 陣列，本身就是「現在有沒有事」的權威答案），recent 來自發布歷史紀錄（一定有內容，
+ * 平時沒有現行警戒時讓頁面仍有東西可看，但不代表這些警戒現在仍然有效）。
+ */
+export interface DebrisFlowSummary {
+  active: DebrisFlowAlert[]
+  recent: DebrisFlowAlert[]
+}

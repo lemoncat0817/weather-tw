@@ -165,7 +165,7 @@ Worker bundle 體積。目前的設計刻意壓低這三項，改動時請留意
 |---|---|---|
 | Worker bundle | 287 KB gzip | 在任何 SSR 走得到的地方靜態 `import` maplibre-gl 或 echarts，整包會被打進 Worker（實測會漲到 548 KB gzip）。一律走 `loadMapLibre()` / `loadECharts()` |
 | 靜態資產 | 3.0 MB | 把 `maplibre-gl-*.mjs.map` 一起複製進 `public/`（2.4 MB 死重量） |
-| CWA 請求 | 圖片播放 **0 次**；主要用量是逐鄉鎮預報（每鄉鎮 3 支 × 30 分 TTL） | 在 per-town handler 裡加入「其實是縣市級或全國級」的上游請求。縣市級的請用 `defineCachedFunction`，見 `server/utils/sunTimes.ts` |
+| CWA 請求 | 圖片播放 **0 次**；主要用量是逐鄉鎮預報（每鄉鎮 4 支 × 30 分 TTL：3 天逐時、1 週延伸、日出日沒、月出月沒） | 在 per-town handler 裡加入「其實是縣市級或全國級」的上游請求。縣市級的請用 `defineCachedFunction`，見 `server/utils/sunTimes.ts`／`moonTimes.ts` |
 | KV 讀取 | 圖片代理熱路徑 1 次／請求（原本 2 次） | 用 `getItemRaw`／`hasItem` 去「檢查存在」——這兩個在 KV 驅動上都會把整份值讀出來 |
 | KV 寫入 | 雷達只在收到新影格時才寫 PNG（約每 10 分一次） | 每次 handler 執行都無條件 `persistRadarImage` |
 

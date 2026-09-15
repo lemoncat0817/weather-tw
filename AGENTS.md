@@ -84,7 +84,9 @@ Sunrise/sunset (`A-B0062-001`) is one row per county per day, but it used to be 
 per-town forecast handler, whose cache key is the full path — so 368 towns each re-asked CWA for an
 identical answer, up to ~17,664 requests/day against a key that has a quota. It now goes through
 `sunTimesFor()` in `server/utils/sunTimes.ts`, a `defineCachedFunction` keyed by county + date: 22
-requests/day. Reach for `defineCachedFunction` whenever several routes need the same upstream slice.
+requests/day. Moonrise/moonset (`A-B0063-001`) is the same shape and goes through the identical
+pattern in `server/utils/moonTimes.ts`. Reach for `defineCachedFunction` whenever several routes need
+the same upstream slice.
 Do **not** pass a custom `getKey` there — Nitro runs it through `escapeKey`
 (`String(key).replace(/\W/g, '')`) and JS `\w` is ASCII-only, so Chinese county names collapse to the
 empty string, the same trap `cacheKeyFor` exists for. The default `hash(args)` is already safe.

@@ -5,9 +5,15 @@ Guidance for AI coding agents working in this repository. Claude Code reaches th
 
 ## Project
 
-「氣象知多少」— a Taiwan weather dashboard (Nuxt 4 SSR) that reads everything from the CWA
-(中央氣象署) Open Data platform and serves it from Cloudflare Workers. UI text, docs, and code
-comments are Traditional Chinese; commit messages are English Conventional Commits.
+「氣象知多少」— a Taiwan weather and disaster-prevention dashboard (Nuxt 4 SSR) that reads
+government open data and serves it from Cloudflare Workers. Most of it comes from the CWA
+(中央氣象署) Open Data platform, but several features read from other agencies' open-data
+platforms with different conventions — air quality from MOENV (環境部), reservoir/river data from
+WRA (經濟部水利署), debris-flow/landslide alerts from ARDSWC (農業部農村發展及水土保持署). Each
+gets its own client in `server/utils/` (`cwa.ts`, `moenv.ts`, `wra.ts`, `ardswc.ts`) rather than
+forcing a shared abstraction — the platforms disagree on auth (API key vs. none), envelope shape,
+and field casing, so a shared client would just be leaky. UI text, docs, and code comments are
+Traditional Chinese; commit messages are English Conventional Commits.
 
 ## Commands
 
@@ -49,15 +55,19 @@ and keep it in sync when you do.
 
 Three tiers, and the boundary between them is the main design rule:
 
-- `app/` — pages, components, client-side utils. Talks only to `/api/**`, never to CWA.
-- `server/` — Nitro API handlers plus the CWA anti-corruption layer.
+- `app/` — pages, components, client-side utils. Talks only to `/api/**`, never directly to any
+  upstream government API.
+- `server/` — Nitro API handlers plus the anti-corruption layer for every upstream source.
 - `shared/types/index.ts` — the domain model, imported from both sides as `#shared/types`.
 
-**CWA raw shapes never leave `server/utils/normalize/`.** The CWA datasets disagree with each other
-on field naming, casing, nesting, and timezone handling; every handler is a thin shell that calls
-`fetchDataset`/`fetchFileApiDataset`, hands the raw payload (cast `as never`) to a normalizer, and
-returns a `shared/types` value. Adding an endpoint means: type in `shared/types`, normalizer in
-`server/utils/normalize/`, cached handler in `server/api/`.
+**Raw upstream shapes never leave `server/utils/normalize/`.** CWA's datasets disagree with each
+other on field naming, casing, nesting, and timezone handling — and the other three agencies each
+add their own version of the same problem (see below). Every handler is a thin shell that calls a
+fetch helper (`fetchDataset`/`fetchFileApiDataset` for CWA, `fetchMoenvDataset`, `fetchWraDataset`,
+`fetchDebrisFlowLiveAlerts`/`fetchDebrisFlowHistory` for the others), hands the raw payload (cast
+`as never`) to a normalizer, and returns a `shared/types` value. Adding an endpoint means: type in
+`shared/types`, normalizer in `server/utils/normalize/`, cached handler in `server/api/` — the same
+three-piece pattern regardless of which agency the data comes from.
 
 **Imports.** Top-level `server/utils/*.ts` are Nitro auto-imports — `fetchDataset`,
 `fetchFileApiDataset`, `cacheKeyFor`, `COUNTY_DATASETS` are used without an import statement. The
@@ -119,6 +129,11 @@ table (odd id = 3-day hourly, even id = 1-week extended).
 `NUXT_CWA_API_KEY` → `runtimeConfig.cwaApiKey`, read at request time inside `server/utils/cwa.ts`
 and nowhere else. It never reaches the client bundle or an API response body. Builds do not need a
 real key (CI passes a placeholder); the key is a Worker runtime secret set via `wrangler secret put`.
+`NUXT_MOENV_API_KEY` → `runtimeConfig.moenvApiKey` (`server/utils/moenv.ts`) follows the identical
+pattern for the air-quality feature — same plumbing, different agency. WRA (`server/utils/wra.ts`)
+and ARDSWC (`server/utils/ardswc.ts`) need no key at all; verified live before relying on it, not
+assumed from their docs. Don't add a fake `apiKey()` guard to those two just to look consistent with
+the other clients — there's nothing to guard.
 
 `nuxt.config.ts` deliberately does not hardcode `nitro.preset`. Local dev/build use the default
 node-server preset; the Cloudflare-specific block (KV cache storage, `nodeCompat`, `deployConfig`)

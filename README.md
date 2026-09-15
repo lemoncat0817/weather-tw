@@ -63,32 +63,19 @@ pnpm dev               # http://localhost:3000
 
 ```
 app/      前端：pages、components、utils
-server/   Nitro API 與 CWA 資料正規化
+server/   Nitro API 與各政府開放資料來源的正規化層
 shared/   前後端共用型別
 ```
 
 三個核心設計：
 
-1. **金鑰只在伺服器端** —— CWA 金鑰由 `useRuntimeConfig()` 在請求當下讀取，不會進入前端 bundle 或 API 回應。
-2. **反腐層（anti-corruption layer）** —— CWA 各資料集的欄位命名、巢狀結構、大小寫慣例互不一致；`server/utils/normalize/**` 統一轉成 `shared/types` 的領域模型，前端完全不接觸原始 JSON。
+1. **金鑰只在伺服器端** —— 需要金鑰的來源（CWA、環境部）由 `useRuntimeConfig()` 在請求當下讀取，不會進入前端 bundle 或 API 回應；水利署、水保署這兩個來源則完全不需要金鑰。
+2. **反腐層（anti-corruption layer）** —— 每個政府開放資料來源的欄位命名、巢狀結構、大小寫慣例都不一樣（甚至同一個機關底下的不同資料集也常常不一致）；`server/utils/normalize/**` 統一轉成 `shared/types` 的領域模型，前端完全不接觸原始 JSON。
 3. **依資料時效分層快取** —— 每支 API 以 `defineCachedEventHandler` 設定各自的 TTL，在 Workers 上由 KV 承載。
 
-<details>
-<summary>API 端點</summary>
-
-| 端點 | 內容 | TTL |
-|---|---|---|
-| `GET /api/forecast/thirty-six-hour` | 全台 22 縣市今明 36 小時預報 | 30 分 |
-| `GET /api/forecast/{county}/{town}` | 鄉鎮 3 天逐時 ＋ 1 週延伸預報 | 30 分 |
-| `GET /api/forecast/choropleth` | 368 鄉鎮溫度分布 | 30 分 |
-| `GET /api/observation/stations?type=weather\|auto\|rain` | 測站觀測 GeoJSON | 10 分 |
-| `GET /api/radar/frames` | 雷達回波動畫影格（伺服器端滾動視窗） | 5 分 |
-| `GET /api/typhoon/active` | 作用中颱風路徑與強度 | 10 分 |
-| `GET /api/earthquake/recent?limit=10` | 近期顯著有感地震與震度分布 | 5 分 |
-| `GET /api/warnings` | 22 縣市警特報 | 10 分 |
-| `GET /api/climate/{stationId}` | 近期觀測 vs. 氣候常態 | 6 小時 |
-
-</details>
+完整端點清單請直接看 [`server/api/`](server/api/)——路由結構就是端點路徑本身（例如
+`server/api/forecast/[county]/[town].get.ts` 對應 `GET /api/forecast/{county}/{town}`），
+這裡不重複維護一份容易漂移的對照表；新增端點的規則見 [AGENTS.md](AGENTS.md#architecture)。
 
 ## 部署
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
-import { onClickOutside, useLocalStorage } from '@vueuse/core'
+import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
@@ -26,9 +26,13 @@ useSeoMeta({
 const DEFAULT_COUNTY = '臺北市'
 const DEFAULT_TOWN = '中正區'
 
-// 記住使用者上次選的地區；initOnMounted 避開 hydration mismatch，理由見 climate.vue 同樣的寫法
-const selectedCounty = useLocalStorage('home-county', DEFAULT_COUNTY, { initOnMounted: true })
-const selectedTown = useLocalStorage('home-town', DEFAULT_TOWN, { initOnMounted: true })
+// 記住使用者上次選的地區。故意用 cookie（useCookie）不用 localStorage：localStorage 只有
+// 瀏覽器端讀得到，SSR 當下完全不知道使用者存過什麼，只能先用預設值畫出來，等 client 端
+// mounted 之後才讀到真正的值、切換過去——使用者會先看到一閃而過的預設地區（臺北市中正區），
+// 才跳到自己選的地區，而且這次還會經過中間的「載入天氣資料中…」畫面，體驗更差。
+// cookie 會隨請求送到伺服器，SSR 階段就能直接讀到，第一次回應就是正確地區，完全不會閃
+const selectedCounty = useCookie('home-county', { default: () => DEFAULT_COUNTY, maxAge: 60 * 60 * 24 * 365 })
+const selectedTown = useCookie('home-town', { default: () => DEFAULT_TOWN, maxAge: 60 * 60 * 24 * 365 })
 
 const [
   { data: forecast, status: forecastStatus },

@@ -97,7 +97,16 @@ onBeforeUnmount(() => {
 
 <template>
   <ClientOnly>
-    <div ref="container" class="w-full" :style="{ height }" />
+    <!-- ClientOnly 的 #fallback 只蓋到 hydration 那一瞬間，一 hydrate 完就換成這個內容插槽，
+         不會等 loadECharts() 的動態 import（~200 KB gzip）真正載入完——沒有這段疊層文字，
+         容器在那段下載+解析期間會是完全空白的框，使用者會以為壞掉了，不是還在載入。
+         chart 在 echarts.init() 成功後才會有值，跟下面 script 的 watch(container, ...) 對齊 -->
+    <div class="relative w-full" :style="{ height }">
+      <div ref="container" class="h-full w-full" />
+      <div v-if="!chart" class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">
+        載入圖表中…
+      </div>
+    </div>
     <template #fallback>
       <div class="flex items-center justify-center text-sm text-text-muted" :style="{ height }">載入圖表中…</div>
     </template>

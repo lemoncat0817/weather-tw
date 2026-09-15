@@ -1,19 +1,36 @@
 <script setup lang="ts">
-const navItems = [
+import { onClickOutside } from '@vueuse/core'
+
+// 13 個項目全部並排，在 768~1180px 這段桌面斷點會擠到逐字換行、連 logo 都被擠爛（實測過）。
+// 拆成「核心常用」直接並排 + 其餘收進「更多」下拉，桌面導覽列只剩 7 個元素，任何桌面寬度都排得下。
+// 手機版選單維持完整攤平列表，收合選單在小螢幕上不會有擠壓問題
+const coreNavItems = [
   { to: '/', label: '首頁' },
   { to: '/map', label: '地圖' },
   { to: '/typhoon', label: '颱風' },
   { to: '/earthquake', label: '地震' },
   { to: '/observation', label: '觀測' },
+  { to: '/warnings', label: '特報' }
+]
+
+const moreNavItems = [
   { to: '/air-quality', label: '空氣品質' },
   { to: '/reservoir', label: '水庫' },
   { to: '/river', label: '河川' },
   { to: '/debris-flow', label: '土石流' },
   { to: '/climate', label: '趨勢' },
-  { to: '/warnings', label: '特報' },
   { to: '/health', label: '健康' },
   { to: '/ocean', label: '海象' }
 ]
+
+const navItems = [...coreNavItems, ...moreNavItems]
+
+const route = useRoute()
+const isMoreActive = computed(() => moreNavItems.some((item) => item.to === route.path))
+
+const moreMenuOpen = ref(false)
+const moreMenuRoot = useTemplateRef<HTMLElement>('moreMenuRoot')
+onClickOutside(moreMenuRoot, () => (moreMenuOpen.value = false))
 
 const mobileNavOpen = ref(false)
 </script>
@@ -49,7 +66,7 @@ const mobileNavOpen = ref(false)
 
         <nav class="hidden items-center gap-1 md:flex" aria-label="主要導覽">
           <NuxtLink
-            v-for="item in navItems"
+            v-for="item in coreNavItems"
             :key="item.to"
             :to="item.to"
             class="rounded-md px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-2 hover:text-text-primary"
@@ -57,6 +74,38 @@ const mobileNavOpen = ref(false)
           >
             {{ item.label }}
           </NuxtLink>
+
+          <div ref="moreMenuRoot" class="relative">
+            <button
+              type="button"
+              class="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-2 hover:text-text-primary"
+              :class="{ '!bg-surface-2 !text-text-primary': isMoreActive }"
+              :aria-expanded="moreMenuOpen"
+              aria-controls="more-nav-menu"
+              @click="moreMenuOpen = !moreMenuOpen"
+            >
+              更多
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <div
+              v-if="moreMenuOpen"
+              id="more-nav-menu"
+              class="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border bg-surface-1 p-1 shadow-lg"
+            >
+              <NuxtLink
+                v-for="item in moreNavItems"
+                :key="item.to"
+                :to="item.to"
+                class="block rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+                active-class="!bg-surface-2 !text-text-primary"
+                @click="moreMenuOpen = false"
+              >
+                {{ item.label }}
+              </NuxtLink>
+            </div>
+          </div>
         </nav>
 
         <button

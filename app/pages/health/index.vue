@@ -82,6 +82,25 @@ watch(metric, () => {
 
 const showTable = ref(false)
 const search = ref('')
+const sortKey = ref<'town' | 'index' | 'level'>('index')
+const sortDesc = ref(true)
+
+const HEALTH_LEVEL_RANK: Record<string, number> = {
+  'high-danger': 4,
+  danger: 3,
+  watch: 2,
+  caution: 1,
+  none: 0
+}
+
+function toggleSort(key: typeof sortKey.value) {
+  if (sortKey.value === key) {
+    sortDesc.value = !sortDesc.value
+  } else {
+    sortKey.value = key
+    sortDesc.value = key !== 'town'
+  }
+}
 
 const tableRows = computed(() => {
   const list = (towns.value ?? [])
@@ -89,7 +108,23 @@ const tableRows = computed(() => {
     .filter((r): r is { county: string; town: string; reading: NonNullable<typeof r.reading> } => !!r.reading)
   const q = search.value.trim()
   const filtered = q ? list.filter((r) => `${r.county}${r.town}`.includes(q)) : list
-  return [...filtered].sort((a, b) => b.reading.index - a.reading.index)
+  const key = sortKey.value
+  return [...filtered].sort((a, b) => {
+    if (key === 'town') {
+      const nameA = `${a.county}${a.town}`
+      const nameB = `${b.county}${b.town}`
+      return sortDesc.value ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB)
+    }
+    if (key === 'level') {
+      const rankA = HEALTH_LEVEL_RANK[a.reading.level] ?? 0
+      const rankB = HEALTH_LEVEL_RANK[b.reading.level] ?? 0
+      if (rankA !== rankB) {
+        return sortDesc.value ? rankB - rankA : rankA - rankB
+      }
+      return sortDesc.value ? b.reading.index - a.reading.index : a.reading.index - b.reading.index
+    }
+    return sortDesc.value ? b.reading.index - a.reading.index : a.reading.index - b.reading.index
+  })
 })
 
 // --- 地圖 ---
@@ -233,14 +268,14 @@ watch(towns, () => {
             placeholder="搜尋縣市或鄉鎮…"
             class="w-48 rounded-md border border-surface-2 bg-surface-0 px-2 py-1 text-sm text-text-primary placeholder:text-text-muted"
           >
-          <span class="ml-auto text-xs text-text-muted">共 {{ tableRows.length }} 個鄉鎮，依指數由高到低排序</span>
+          <span class="ml-auto text-xs text-text-muted">共 {{ tableRows.length }} 個鄉鎮</span>
         </div>
         <table class="w-full min-w-2xl text-left text-sm">
           <thead>
             <tr class="border-b border-surface-2 text-text-muted">
-              <th class="px-3 py-2 font-normal">鄉鎮</th>
-              <th class="px-3 py-2 text-right font-normal">指數</th>
-              <th class="px-3 py-2 font-normal">等級</th>
+              <SortableTh :active="sortKey === 'town'" :desc="sortDesc" @click="toggleSort('town')">鄉鎮</SortableTh>
+              <SortableTh :active="sortKey === 'index'" :desc="sortDesc" align="right" @click="toggleSort('index')">指數</SortableTh>
+              <SortableTh :active="sortKey === 'level'" :desc="sortDesc" @click="toggleSort('level')">等級</SortableTh>
             </tr>
           </thead>
           <tbody>

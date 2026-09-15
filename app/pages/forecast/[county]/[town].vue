@@ -28,10 +28,9 @@ const { data: forecast, status, error } = await useFetch<TownForecast>(
 )
 
 // 跟首頁同一套做法：server:false，這份資料只餵一個小徽章，不是 SEO 內容，不值得拖累 SSR payload
-const { data: airQualityStations } = useFetch<GeoFeatureCollection<GeoPoint, AirQualityStation>>(
-  '/api/air-quality/stations',
-  { server: false }
-)
+const { data: airQualityStations, status: airQualityStatus } = useFetch<
+  GeoFeatureCollection<GeoPoint, AirQualityStation>
+>('/api/air-quality/stations', { server: false })
 
 const nearestAirQuality = computed(() => {
   const coordinates = forecast.value?.coordinates
@@ -111,8 +110,12 @@ const current = computed(() => {
           <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
+          <span v-if="airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+            <span>空氣品質</span>
+            <span>…</span>
+          </span>
           <NuxtLink
-            v-if="nearestAirQuality"
+            v-else-if="nearestAirQuality"
             :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
             class="flex items-center gap-1 hover:text-text-primary"
             :title="`最近測站：${nearestAirQuality.siteName}`"

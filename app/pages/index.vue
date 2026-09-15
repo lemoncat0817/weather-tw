@@ -50,10 +50,9 @@ const [
 // 全台空氣品質測站只有約 80 個，鄉鎮卻有 368 個，不是每個鄉鎮旁邊都有站——這份資料只餵給
 // 首頁 Hero 卡片的一個小徽章，不是 SEO 內容，故意不放進上面那批 SSR 的 Promise.all，
 // 跟 /map、/health 的作法一致：server:false，等 hydration 後再抓，不拖累首屏
-const { data: airQualityStations } = useFetch<GeoFeatureCollection<GeoPoint, AirQualityStation>>(
-  '/api/air-quality/stations',
-  { server: false }
-)
+const { data: airQualityStations, status: airQualityStatus } = useFetch<
+  GeoFeatureCollection<GeoPoint, AirQualityStation>
+>('/api/air-quality/stations', { server: false })
 
 const nearestAirQuality = computed(() => {
   const coordinates = forecast.value?.coordinates
@@ -225,8 +224,15 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
           <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
           <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
           <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
+          <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉——這個 server:false
+               的 client-only fetch 一定會經過 pending，跟上面 useFetch 的 status 一樣是可見狀態，
+               不是死碼；抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
+          <span v-if="airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+            <span>空氣品質</span>
+            <span>…</span>
+          </span>
           <NuxtLink
-            v-if="nearestAirQuality"
+            v-else-if="nearestAirQuality"
             :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
             class="flex items-center gap-1 hover:text-text-primary"
             :title="`最近測站：${nearestAirQuality.siteName}`"

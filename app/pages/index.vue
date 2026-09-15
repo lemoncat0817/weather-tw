@@ -238,10 +238,16 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
           <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
           <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
           <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
-          <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉——這個 server:false
-               的 client-only fetch 一定會經過 pending，跟上面 useFetch 的 status 一樣是可見狀態，
-               不是死碼；抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
-          <span v-if="mounted && airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+          <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉。idle 也要蓋到，
+               不能只顯示 pending：這個 server:false 的 fetch 在 setup() 就註冊好，但要等
+               loadECharts 之外的整批 JS 模組（開發模式下是逐一發送、未打包）載入完才會真的
+               被送出去，掛載完成（mounted 翻 true）到 fetch 真正送出去中間有一段 idle 空窗，
+               只蓋 pending 蓋不到這段，徽章會完全消失——實測 Slow 3G 底下量到這個空窗
+               長達數秒。抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
+          <span
+            v-if="mounted && (airQualityStatus === 'idle' || airQualityStatus === 'pending')"
+            class="flex items-center gap-1 text-text-muted"
+          >
             <span>空氣品質</span>
             <span>…</span>
           </span>

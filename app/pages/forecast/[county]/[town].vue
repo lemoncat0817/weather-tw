@@ -116,7 +116,12 @@ const current = computed(() => {
           <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
-          <span v-if="mounted && airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+          <!-- idle 也要蓋到，理由見 index.vue 同樣的寫法：mounted 翻 true 到 fetch 真正送出去
+               中間有一段 idle 空窗，只蓋 pending 蓋不到，徽章會整個消失 -->
+          <span
+            v-if="mounted && (airQualityStatus === 'idle' || airQualityStatus === 'pending')"
+            class="flex items-center gap-1 text-text-muted"
+          >
             <span>空氣品質</span>
             <span>…</span>
           </span>

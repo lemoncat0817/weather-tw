@@ -4,7 +4,8 @@ import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
-import type { TownForecast, CountyWarning, Typhoon, Earthquake, RadarFrame } from '#shared/types'
+import { temperatureColor } from '@/utils/colorScales'
+import type { TownForecast, TownForecastPeriod, CountyWarning, Typhoon, Earthquake, RadarFrame } from '#shared/types'
 
 useSeoMeta({
   title: '氣象知多少 — 台灣即時天氣、雷達與颱風資訊',
@@ -66,6 +67,43 @@ const compactMeteogram = computed(() =>
 )
 
 const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2 === 0).slice(0, 7) ?? [])
+
+// 7 天溫度區間棒的定義域：用「這一週」自己的最低/最高溫當 0%/100%，跟地圖圖例固定 15~35°C
+// 的絕對定義域不同語意——這裡要凸顯的是同一週內幾天之間的相對冷熱，不是跟其他地區比對的
+// 絕對讀數，固定域在寒流或熱浪週會讓所有長條擠成一團，看不出差異
+const weekTemperatureRange = computed(() => {
+  if (weekAhead.value.length === 0) return null
+  const min = Math.min(...weekAhead.value.map((p) => p.minTemperature))
+  const max = Math.max(...weekAhead.value.map((p) => p.maxTemperature))
+  return { min, max: Math.max(max, min + 1) } // +1 下限：全週同溫時避免除以零
+})
+
+// 整週共用同一條「冷→熱」漸層（沿用地圖圖例那支 colorScales.temperatureColor），每天的色塊
+// 只是這條漸層裡對應自己高低溫範圍的那一段，用 background-size/position 的精靈圖技巧截取，
+// 這樣跨天比色時仍是同一套色階，不會因為各自重算色相而讓相近溫度看起來不一致
+const WEEK_GRADIENT_STOPS = 9
+const weekGradient = computed(() => {
+  const stops = Array.from({ length: WEEK_GRADIENT_STOPS }, (_, i) => {
+    const t = (i / (WEEK_GRADIENT_STOPS - 1)) * 2 - 1
+    return `${temperatureColor(t)} ${(i / (WEEK_GRADIENT_STOPS - 1)) * 100}%`
+  })
+  return `linear-gradient(to right, ${stops.join(', ')})`
+})
+
+function dayRangeBarStyle(period: TownForecastPeriod) {
+  const range = weekTemperatureRange.value
+  if (!range) return {}
+  const span = range.max - range.min
+  const leftPct = ((period.minTemperature - range.min) / span) * 100
+  const widthPct = Math.max(((period.maxTemperature - period.minTemperature) / span) * 100, 4)
+  return {
+    left: `${leftPct}%`,
+    width: `${widthPct}%`,
+    backgroundImage: weekGradient.value,
+    backgroundSize: `${(100 / widthPct) * 100}% 100%`,
+    backgroundPositionX: `${-(leftPct / widthPct) * 100}%`
+  }
+}
 </script>
 
 <template>
@@ -195,6 +233,9 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
           </p>
           <WeatherIcon :code="period.weatherCode" class="h-7 w-7 text-accent" />
           <p class="tabular-nums text-sm text-text-primary">{{ period.maxTemperature }}° / {{ period.minTemperature }}°</p>
+          <div class="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <div class="absolute inset-y-0 rounded-full" :style="dayRangeBarStyle(period)" />
+          </div>
         </div>
       </div>
     </section>

@@ -146,11 +146,11 @@ watch(stations, () => {
         <table class="w-full min-w-2xl text-left text-sm">
           <thead>
             <tr class="border-b border-surface-2 text-text-muted">
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('name')">水庫</th>
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('storagePercentage')">蓄水率</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('waterLevel')">水位（m）</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('inflow')">進流量（CMS）</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('outflow')">出流量（CMS）</th>
+              <SortableTh :active="sortKey === 'name'" :desc="sortDesc" @click="toggleSort('name')">水庫</SortableTh>
+              <SortableTh :active="sortKey === 'storagePercentage'" :desc="sortDesc" @click="toggleSort('storagePercentage')">蓄水率</SortableTh>
+              <SortableTh :active="sortKey === 'waterLevel'" :desc="sortDesc" align="right" @click="toggleSort('waterLevel')">水位（m）</SortableTh>
+              <SortableTh :active="sortKey === 'inflow'" :desc="sortDesc" align="right" @click="toggleSort('inflow')">進流量（CMS）</SortableTh>
+              <SortableTh :active="sortKey === 'outflow'" :desc="sortDesc" align="right" @click="toggleSort('outflow')">出流量（CMS）</SortableTh>
               <th class="px-3 py-2 font-normal">觀測時間</th>
             </tr>
           </thead>

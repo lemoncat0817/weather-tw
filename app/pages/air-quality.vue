@@ -168,15 +168,15 @@ watch(stations, () => {
         <table class="w-full min-w-2xl text-left text-sm">
           <thead>
             <tr class="border-b border-surface-2 text-text-muted">
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('siteName')">測站</th>
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('county')">縣市</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('aqi')">AQI</th>
+              <SortableTh :active="sortKey === 'siteName'" :desc="sortDesc" @click="toggleSort('siteName')">測站</SortableTh>
+              <SortableTh :active="sortKey === 'county'" :desc="sortDesc" @click="toggleSort('county')">縣市</SortableTh>
+              <SortableTh :active="sortKey === 'aqi'" :desc="sortDesc" align="right" @click="toggleSort('aqi')">AQI</SortableTh>
               <th class="px-3 py-2 font-normal">等級</th>
               <th class="px-3 py-2 font-normal">首要污染物</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('pm25')">PM2.5</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('pm10')">PM10</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('o3')">臭氧</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('publishTime')">發布時間</th>
+              <SortableTh :active="sortKey === 'pm25'" :desc="sortDesc" align="right" @click="toggleSort('pm25')">PM2.5</SortableTh>
+              <SortableTh :active="sortKey === 'pm10'" :desc="sortDesc" align="right" @click="toggleSort('pm10')">PM10</SortableTh>
+              <SortableTh :active="sortKey === 'o3'" :desc="sortDesc" align="right" @click="toggleSort('o3')">臭氧</SortableTh>
+              <SortableTh :active="sortKey === 'publishTime'" :desc="sortDesc" align="right" @click="toggleSort('publishTime')">發布時間</SortableTh>
             </tr>
           </thead>
           <tbody>

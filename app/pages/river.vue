@@ -156,10 +156,10 @@ watch(stations, () => {
         <table class="w-full min-w-2xl text-left text-sm">
           <thead>
             <tr class="border-b border-surface-2 text-text-muted">
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('name')">測站</th>
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('river')">河川</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('waterLevel')">水位（m）</th>
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('alertLevel')">警戒等級</th>
+              <SortableTh :active="sortKey === 'name'" :desc="sortDesc" @click="toggleSort('name')">測站</SortableTh>
+              <SortableTh :active="sortKey === 'river'" :desc="sortDesc" @click="toggleSort('river')">河川</SortableTh>
+              <SortableTh :active="sortKey === 'waterLevel'" :desc="sortDesc" align="right" @click="toggleSort('waterLevel')">水位（m）</SortableTh>
+              <SortableTh :active="sortKey === 'alertLevel'" :desc="sortDesc" @click="toggleSort('alertLevel')">警戒等級</SortableTh>
               <th class="px-3 py-2 font-normal">觀測時間</th>
             </tr>
           </thead>

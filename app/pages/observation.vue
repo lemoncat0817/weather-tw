@@ -26,7 +26,9 @@ const { data: stations, status } = await useFetch<GeoFeatureCollection<GeoPoint,
 })
 
 const search = ref('')
-const sortKey = ref<'stationName' | 'county' | 'temperature' | 'relativeHumidity' | 'windSpeed' | 'precipitation' | 'obsTime'>(
+const sortKey = ref<
+  'stationName' | 'county' | 'temperature' | 'relativeHumidity' | 'windSpeed' | 'peakGust' | 'precipitation' | 'obsTime'
+>(
   'temperature'
 )
 const sortDesc = ref(true)
@@ -39,13 +41,14 @@ const filteredRows = computed(() => {
   return rows.value.filter((r) => r.stationName.includes(q) || r.county.includes(q) || r.town.includes(q))
 })
 
-// stationName/county/obsTime 是 Observation 頂層欄位；其餘（溫度、濕度、風速、雨量）是巢狀在 reading 底下
+// stationName/county/obsTime 是 Observation 頂層欄位；其餘（溫度、濕度、風速、陣風、雨量）是巢狀在 reading 底下
 const TOP_LEVEL_KEYS = new Set(['stationName', 'county', 'obsTime'])
 
 function sortValue(row: Observation, key: typeof sortKey.value): string | number {
   if (TOP_LEVEL_KEYS.has(key)) return row[key as 'stationName' | 'county' | 'obsTime']
   // 雨量欄位排序要跟著使用者選的時距走，不能固定用瞬時值，否則「排序」跟「顯示」對不上
   if (key === 'precipitation') return precipitationValue(row.reading, precipRange.value) ?? -Infinity
+  if (key === 'peakGust') return row.reading.peakGust?.speed ?? -Infinity
   const v = row.reading[key as keyof Observation['reading']]
   return typeof v === 'number' ? v : -Infinity
 }
@@ -194,17 +197,25 @@ watch(precipRange, () => {
         <table class="w-full min-w-[42rem] text-left text-sm">
           <thead>
             <tr class="border-b border-surface-2 text-text-muted">
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('stationName')">測站</th>
-              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('county')">縣市/鄉鎮</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('temperature')">溫度</th>
+              <SortableTh :active="sortKey === 'stationName'" :desc="sortDesc" @click="toggleSort('stationName')">測站</SortableTh>
+              <SortableTh :active="sortKey === 'county'" :desc="sortDesc" @click="toggleSort('county')">縣市/鄉鎮</SortableTh>
+              <SortableTh :active="sortKey === 'temperature'" :desc="sortDesc" align="right" @click="toggleSort('temperature')">溫度</SortableTh>
               <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">今日高/低</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('relativeHumidity')">濕度</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('windSpeed')">風速</th>
-              <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">陣風</th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('precipitation')">
+              <SortableTh :active="sortKey === 'relativeHumidity'" :desc="sortDesc" align="right" @click="toggleSort('relativeHumidity')">濕度</SortableTh>
+              <SortableTh :active="sortKey === 'windSpeed'" :desc="sortDesc" align="right" @click="toggleSort('windSpeed')">風速</SortableTh>
+              <SortableTh
+                v-if="stationType === 'weather'"
+                :active="sortKey === 'peakGust'"
+                :desc="sortDesc"
+                align="right"
+                @click="toggleSort('peakGust')"
+              >
+                陣風
+              </SortableTh>
+              <SortableTh :active="sortKey === 'precipitation'" :desc="sortDesc" align="right" @click="toggleSort('precipitation')">
                 雨量{{ stationType === 'rain' ? `（${precipRangeLabel}）` : '' }}
-              </th>
-              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('obsTime')">觀測時間</th>
+              </SortableTh>
+              <SortableTh :active="sortKey === 'obsTime'" :desc="sortDesc" align="right" @click="toggleSort('obsTime')">觀測時間</SortableTh>
             </tr>
           </thead>
           <tbody>

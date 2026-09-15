@@ -26,7 +26,10 @@ const LEGEND_LEVELS = [
 // 不是 /health、/map 那種只餵地圖圖層的資料
 const { data: stations } = await useFetch<GeoFeatureCollection<GeoPoint, AirQualityStation>>('/api/air-quality/stations')
 
-const search = ref('')
+// 首頁／鄉鎮預報頁的「最近測站」徽章會帶 ?site=測站名稱 連過來，直接當搜尋框的初始值
+// 讓表格自動篩到那一列，不用使用者自己再找一次；使用者之後照樣能自由清空或改搜尋字串
+const route = useRoute()
+const search = ref(typeof route.query.site === 'string' ? route.query.site : '')
 // 空字串代表「全部縣市」；縣市數量固定且離散（22 個），比自由輸入更適合下拉選單，
 // 跟測站名稱搜尋分開成兩個獨立條件，用 AND 合併，不會互相干擾
 const selectedCounty = ref('')

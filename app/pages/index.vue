@@ -5,8 +5,7 @@ import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
 import { temperatureColor, airQualityColor } from '@/utils/colorScales'
-import { AIR_QUALITY_LEVEL_LABEL } from '@/utils/airQuality'
-import { findNearest, haversineKm } from '@/utils/geoDistance'
+import { AIR_QUALITY_LEVEL_LABEL, nearestAirQualityStation } from '@/utils/airQuality'
 import type {
   TownForecast,
   TownForecastPeriod,
@@ -51,17 +50,11 @@ const { data: airQualityStations } = useFetch<GeoFeatureCollection<GeoPoint, Air
   { server: false }
 )
 
-// 找離目前選定鄉鎮最近的測站——重心點比對，跟 LocationPicker 用 findNearest 猜「你在哪個鄉鎮」
-// 同一套邏輯。超過 50 公里代表附近根本沒站（外島或山區常見），與其顯示一個誤導的遠地讀數，
-// 不如直接不顯示
-const NEAREST_AIR_QUALITY_MAX_KM = 50
 const nearestAirQuality = computed(() => {
   const coordinates = forecast.value?.coordinates
   const stations = airQualityStations.value?.features.map((f) => f.properties)
   if (!coordinates || !stations || stations.length === 0) return null
-  const nearest = findNearest(coordinates, stations)
-  if (!nearest) return null
-  return haversineKm(coordinates, nearest.coordinates) <= NEAREST_AIR_QUALITY_MAX_KM ? nearest : null
+  return nearestAirQualityStation(coordinates, stations)
 })
 
 const ACTIVE_WARNINGS_COLLAPSE_AT = 5
@@ -218,7 +211,7 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
         <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
         <NuxtLink
           v-if="nearestAirQuality"
-          to="/air-quality"
+          :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
           class="flex items-center gap-1 hover:text-text-primary"
           :title="`最近測站：${nearestAirQuality.siteName}`"
         >

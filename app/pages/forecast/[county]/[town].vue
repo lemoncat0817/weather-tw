@@ -41,6 +41,8 @@ const nearestAirQuality = computed(() => {
 
 // 必須同時涵蓋 idle 與 pending，理由見 index.vue 同樣的寫法
 const airQualityLoading = computed(() => airQualityStatus.value === 'idle' || airQualityStatus.value === 'pending')
+// 確定「附近沒有測站」（跟還在讀取中、跟抓取失敗都不一樣），理由見 index.vue 同樣的寫法
+const airQualityNoCoverage = computed(() => airQualityStatus.value === 'success' && !nearestAirQuality.value)
 
 useSeoMeta({
   title: () => `${town.value}天氣預報 — 氣象知多少`,
@@ -129,6 +131,7 @@ const current = computed(() => {
             </span>
             <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
           </NuxtLink>
+          <span v-else-if="airQualityNoCoverage" class="text-text-muted">空氣品質 鄰近無測站</span>
         </div>
       </section>
 

@@ -34,6 +34,14 @@ const DEFAULT_TOWN = '中正區'
 const selectedCounty = useCookie('home-county', { default: () => DEFAULT_COUNTY, maxAge: 60 * 60 * 24 * 365 })
 const selectedTown = useCookie('home-town', { default: () => DEFAULT_TOWN, maxAge: 60 * 60 * 24 * 365 })
 
+// useFetch 內部監看 key 的 watcher 是 flush:'sync'（Nuxt 4.5 asyncData.js），依賴一變就立刻
+// 同步重新求值，不會把同一輪的多個變更批次處理。若 key 直接讀 selectedCounty/selectedTown
+// 這兩個各自獨立的 cookie，onLocationSelect 依序寫入兩個值時會各自觸發一次重新求值，中間那次
+// 用「新縣市＋舊鄉鎮」這種不存在的組合送出一發注定失敗、隨即被蓋掉的請求（實測 devtools 網路
+// 面板真的看得到 net::ERR_ABORTED）。改成 key 只依賴這一個物件 ref，onLocationSelect 一次寫入，
+// 兩個 cookie 只負責跨重新整理記住使用者選擇，不直接餵給 fetch
+const selectedLocation = ref({ county: selectedCounty.value, town: selectedTown.value })
+
 const [
   { data: forecast, status: forecastStatus },
   { data: warnings },
@@ -42,8 +50,8 @@ const [
   { data: radar }
 ] = await Promise.all([
   useFetch<TownForecast>(
-    () => `/api/forecast/${encodeURIComponent(selectedCounty.value)}/${encodeURIComponent(selectedTown.value)}`,
-    { key: () => `home-forecast-${selectedCounty.value}-${selectedTown.value}` }
+    () => `/api/forecast/${encodeURIComponent(selectedLocation.value.county)}/${encodeURIComponent(selectedLocation.value.town)}`,
+    { key: () => `home-forecast-${selectedLocation.value.county}-${selectedLocation.value.town}` }
   ),
   useFetch<CountyWarning[]>('/api/warnings'),
   useFetch<Typhoon[]>('/api/typhoon/active'),
@@ -74,6 +82,13 @@ const nearestAirQuality = computed(() => {
 // 使用者不用等整包 JS 下載完就看得到（開發模式未打包時那段等待特別久）
 const airQualityLoading = computed(() => airQualityStatus.value === 'idle' || airQualityStatus.value === 'pending')
 
+// 抓完之後確定「附近沒有測站」（跟還在讀取中不一樣，也跟抓取失敗不一樣——失敗時維持原本
+// 的靜默不顯示，沒必要讓使用者對著一個暫時性的網路問題感到疑惑）。這一排的其他項目
+// （降雨機率/風速/風向/日出/日沒）永遠都會顯示，只有這項會整個消失不見，容易讓人誤以為
+// 壞掉（烏坵鄉這類離島離最近測站 130 公里，是實測踩到的真實案例）——有明確答案時就講清楚，
+// 比什麼都不顯示更誠實
+const airQualityNoCoverage = computed(() => airQualityStatus.value === 'success' && !nearestAirQuality.value)
+
 const ACTIVE_WARNINGS_COLLAPSE_AT = 5
 const activeWarnings = computed(() => (warnings.value ?? []).filter((w) => w.hazards.length > 0))
 const visibleWarnings = computed(() => activeWarnings.value.slice(0, ACTIVE_WARNINGS_COLLAPSE_AT))
@@ -87,6 +102,7 @@ onClickOutside(pickerRoot, () => (pickerOpen.value = false))
 function onLocationSelect(county: string, town: string) {
   selectedCounty.value = county
   selectedTown.value = town
+  selectedLocation.value = { county, town }
   pickerOpen.value = false
 }
 
@@ -238,8 +254,7 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
           <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
           <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
           <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉；
-               airQualityLoading 同時涵蓋 idle/pending 的理由見上面宣告處。
-               抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
+               airQualityLoading 同時涵蓋 idle/pending 的理由見上面宣告處 -->
           <span v-if="airQualityLoading" class="flex items-center gap-1 text-text-muted">
             <span>空氣品質</span>
             <span>…</span>
@@ -256,6 +271,8 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
             </span>
             <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
           </NuxtLink>
+          <!-- 抓取失敗（error）維持靜默不顯示，不確定是不是真的沒有鄰近測站，不該亂講 -->
+          <span v-else-if="airQualityNoCoverage" class="text-text-muted">空氣品質 鄰近無測站</span>
         </div>
 
         <NuxtLink

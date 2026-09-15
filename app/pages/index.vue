@@ -2,7 +2,7 @@
 import { computed, ref, useTemplateRef } from 'vue'
 import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
-import { formatTaipeiMonthDay } from '@/utils/formatDate'
+import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
 import { temperatureColor } from '@/utils/colorScales'
 import type { TownForecast, TownForecastPeriod, CountyWarning, Typhoon, Earthquake, RadarFrame } from '#shared/types'
@@ -176,6 +176,15 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
         <p class="tabular-nums text-4xl font-semibold text-text-primary">{{ current.temperature }}°</p>
         <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
       </div>
+
+      <div class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-secondary">
+        <span><span class="text-text-muted">降雨機率</span> <span class="tabular-nums">{{ current.pop ?? '—' }}%</span></span>
+        <span><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></span>
+        <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
+        <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
+        <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
+      </div>
+
       <NuxtLink
         :to="`/forecast/${selectedCounty}/${selectedTown}`"
         class="ml-auto rounded-md bg-surface-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"

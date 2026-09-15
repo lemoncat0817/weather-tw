@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
@@ -37,6 +37,12 @@ const nearestAirQuality = computed(() => {
   const stations = airQualityStations.value?.features.map((f) => f.properties)
   if (!coordinates || !stations || stations.length === 0) return null
   return nearestAirQualityStation(coordinates, stations)
+})
+
+// 同一個 hydration mismatch 陷阱，理由見 index.vue 同樣的寫法
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
 })
 
 useSeoMeta({
@@ -110,7 +116,7 @@ const current = computed(() => {
           <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
-          <span v-if="airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+          <span v-if="mounted && airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
             <span>空氣品質</span>
             <span>…</span>
           </span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
@@ -59,6 +59,16 @@ const nearestAirQuality = computed(() => {
   const stations = airQualityStations.value?.features.map((f) => f.properties)
   if (!coordinates || !stations || stations.length === 0) return null
   return nearestAirQualityStation(coordinates, stations)
+})
+
+// server:false 的 fetch 一進 client 端 setup() 就會同步把 status 從 idle 轉成 pending，
+// 但 SSR 端整段 fetch 直接跳過、status 停在 idle——若 v-if 直接拿 status 判斷，會讓 SSR 出來
+// 的 HTML（idle → 不顯示）跟 client 第一輪 render（pending → 顯示）對不上，觸發 hydration
+// mismatch（實測 console 真的會噴 "Hydration node mismatch"）。用 onMounted 延遲翻成 true，
+// 讓這個判斷只在 hydration 比對完成之後才生效，兩邊第一輪 render 都是 false，不會對不上
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
 })
 
 const ACTIVE_WARNINGS_COLLAPSE_AT = 5
@@ -227,7 +237,7 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
           <!-- 抓到之前完全不存在的項目「憑空出現」比不顯示更容易讓人以為壞掉——這個 server:false
                的 client-only fetch 一定會經過 pending，跟上面 useFetch 的 status 一樣是可見狀態，
                不是死碼；抓完後沒有鄰近測站就直接不顯示，維持原本的設計 -->
-          <span v-if="airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
+          <span v-if="mounted && airQualityStatus === 'pending'" class="flex items-center gap-1 text-text-muted">
             <span>空氣品質</span>
             <span>…</span>
           </span>

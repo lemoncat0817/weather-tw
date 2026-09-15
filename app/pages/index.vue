@@ -30,17 +30,22 @@ const DEFAULT_TOWN = '中正區'
 const selectedCounty = useLocalStorage('home-county', DEFAULT_COUNTY, { initOnMounted: true })
 const selectedTown = useLocalStorage('home-town', DEFAULT_TOWN, { initOnMounted: true })
 
-const [{ data: forecast }, { data: warnings }, { data: typhoons }, { data: earthquakes }, { data: radar }] =
-  await Promise.all([
-    useFetch<TownForecast>(
-      () => `/api/forecast/${encodeURIComponent(selectedCounty.value)}/${encodeURIComponent(selectedTown.value)}`,
-      { key: () => `home-forecast-${selectedCounty.value}-${selectedTown.value}` }
-    ),
-    useFetch<CountyWarning[]>('/api/warnings'),
-    useFetch<Typhoon[]>('/api/typhoon/active'),
-    useFetch<Earthquake[]>('/api/earthquake/recent', { query: { limit: 3 } }),
-    useFetch<RadarFrame[]>('/api/radar/frames')
-  ])
+const [
+  { data: forecast, status: forecastStatus },
+  { data: warnings },
+  { data: typhoons },
+  { data: earthquakes },
+  { data: radar }
+] = await Promise.all([
+  useFetch<TownForecast>(
+    () => `/api/forecast/${encodeURIComponent(selectedCounty.value)}/${encodeURIComponent(selectedTown.value)}`,
+    { key: () => `home-forecast-${selectedCounty.value}-${selectedTown.value}` }
+  ),
+  useFetch<CountyWarning[]>('/api/warnings'),
+  useFetch<Typhoon[]>('/api/typhoon/active'),
+  useFetch<Earthquake[]>('/api/earthquake/recent', { query: { limit: 3 } }),
+  useFetch<RadarFrame[]>('/api/radar/frames')
+])
 
 // 全台空氣品質測站只有約 80 個，鄉鎮卻有 368 個，不是每個鄉鎮旁邊都有站——這份資料只餵給
 // 首頁 Hero 卡片的一個小徽章，不是 SEO 內容，故意不放進上面那批 SSR 的 Promise.all，
@@ -178,113 +183,125 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
       </NuxtLink>
     </div>
 
-    <!-- Hero：現況 -->
-    <section v-if="current" class="flex flex-wrap items-center gap-4 rounded-lg bg-surface-1 p-6">
-      <WeatherIcon :code="current.weatherCode" class="h-16 w-16 text-accent" />
-      <div>
-        <div ref="pickerRoot" class="relative inline-block">
-          <button
-            type="button"
-            class="flex items-center gap-1 rounded-md px-1 -mx-1 text-sm text-text-muted hover:bg-surface-2 hover:text-text-primary"
-            aria-label="選擇地區"
-            :aria-expanded="pickerOpen"
-            @click="pickerOpen = !pickerOpen"
-          >
-            {{ selectedCounty }}{{ selectedTown }}
-            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-          <div v-if="pickerOpen" class="absolute left-0 top-full z-30 mt-1">
-            <LocationPicker @select="onLocationSelect" @close="pickerOpen = false" />
-          </div>
-        </div>
-        <p class="tabular-nums text-4xl font-semibold text-text-primary">{{ current.temperature }}°</p>
-        <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
-      </div>
+    <!-- selectedCounty/selectedTown 是 localStorage 驅動的 ref，使用者透過 LocationPicker
+         換地區時這裡會原地重新 fetch（元件沒有重新掛載，直接吃這個 status 的變化），
+         跟首次進站時被 Suspense 整個遮住的情況不同，這個 pending 分支使用者看得到 -->
+    <div v-if="forecastStatus === 'pending'" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      載入天氣資料中…
+    </div>
+    <div v-else-if="!forecast" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      無法載入天氣預報，請稍後再試。
+    </div>
 
-      <div class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-secondary">
-        <span><span class="text-text-muted">降雨機率</span> <span class="tabular-nums">{{ current.pop ?? '—' }}%</span></span>
-        <span><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></span>
-        <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
-        <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
-        <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
+    <template v-else>
+      <!-- Hero：現況 -->
+      <section v-if="current" class="flex flex-wrap items-center gap-4 rounded-lg bg-surface-1 p-6">
+        <WeatherIcon :code="current.weatherCode" class="h-16 w-16 text-accent" />
+        <div>
+          <div ref="pickerRoot" class="relative inline-block">
+            <button
+              type="button"
+              class="flex items-center gap-1 rounded-md px-1 -mx-1 text-sm text-text-muted hover:bg-surface-2 hover:text-text-primary"
+              aria-label="選擇地區"
+              :aria-expanded="pickerOpen"
+              @click="pickerOpen = !pickerOpen"
+            >
+              {{ selectedCounty }}{{ selectedTown }}
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <div v-if="pickerOpen" class="absolute left-0 top-full z-30 mt-1">
+              <LocationPicker @select="onLocationSelect" @close="pickerOpen = false" />
+            </div>
+          </div>
+          <p class="tabular-nums text-4xl font-semibold text-text-primary">{{ current.temperature }}°</p>
+          <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
+        </div>
+
+        <div class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-secondary">
+          <span><span class="text-text-muted">降雨機率</span> <span class="tabular-nums">{{ current.pop ?? '—' }}%</span></span>
+          <span><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></span>
+          <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
+          <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
+          <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
+          <NuxtLink
+            v-if="nearestAirQuality"
+            :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
+            class="flex items-center gap-1 hover:text-text-primary"
+            :title="`最近測站：${nearestAirQuality.siteName}`"
+          >
+            <span class="text-text-muted">空氣品質</span>
+            <span class="tabular-nums font-medium" :style="{ color: airQualityColor(nearestAirQuality.level) }">
+              {{ nearestAirQuality.aqi ?? '—' }}
+            </span>
+            <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
+          </NuxtLink>
+        </div>
+
         <NuxtLink
-          v-if="nearestAirQuality"
-          :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
-          class="flex items-center gap-1 hover:text-text-primary"
-          :title="`最近測站：${nearestAirQuality.siteName}`"
+          :to="`/forecast/${selectedCounty}/${selectedTown}`"
+          class="ml-auto rounded-md bg-surface-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
         >
-          <span class="text-text-muted">空氣品質</span>
-          <span class="tabular-nums font-medium" :style="{ color: airQualityColor(nearestAirQuality.level) }">
-            {{ nearestAirQuality.aqi ?? '—' }}
-          </span>
-          <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
+          完整預報 →
+        </NuxtLink>
+      </section>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <!-- 今日 meteogram -->
+        <section class="rounded-lg bg-surface-1 p-4 lg:col-span-2">
+          <h2 class="mb-2 text-sm font-medium text-text-secondary">今明 24 小時</h2>
+          <ChartsBaseChart v-if="compactMeteogram" :option="compactMeteogram" height="260px" />
+        </section>
+
+        <!-- 雷達縮圖 -->
+        <NuxtLink to="/map" class="group relative overflow-hidden rounded-lg bg-surface-1">
+          <div class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">
+            <!-- 這張是 CWA 的整合回波原圖：3600×3600、傳輸 384 KB、解碼後 49.4 MB RGBA，
+                 但在這裡只是一張約 380px 寬的裝飾縮圖。首頁是全站流量最大的頁面，不能讓它
+                 跟主要內容搶頻寬與主執行緒——CWA 沒有提供低解析度版本，Workers 也沒有影像
+                 處理能力可以在伺服器端縮圖，所以用瀏覽器原生的三個屬性把它徹底移出關鍵路徑：
+                 lazy（捲到附近才抓，行動裝置多半根本不會抓）、async（解碼不卡主執行緒）、
+                 low（優先度低於 LCP 內容）。width/height 宣告原始長寬比，讓版面不會位移。 -->
+            <img
+              v-if="latestRadar"
+              :src="latestRadar.imageUrl"
+              alt="雷達回波縮圖"
+              width="3600"
+              height="3600"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              class="h-full w-full object-cover opacity-70"
+            >
+            <span v-else>雷達影像載入中…</span>
+          </div>
+          <div class="relative flex h-full min-h-40 items-end bg-gradient-to-t from-surface-0/90 to-transparent p-4">
+            <p class="text-sm font-medium text-text-primary group-hover:text-accent">前往互動地圖 →</p>
+          </div>
         </NuxtLink>
       </div>
 
-      <NuxtLink
-        :to="`/forecast/${selectedCounty}/${selectedTown}`"
-        class="ml-auto rounded-md bg-surface-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
-      >
-        完整預報 →
-      </NuxtLink>
-    </section>
-
-    <div class="grid gap-4 lg:grid-cols-3">
-      <!-- 今日 meteogram -->
-      <section class="rounded-lg bg-surface-1 p-4 lg:col-span-2">
-        <h2 class="mb-2 text-sm font-medium text-text-secondary">今明 24 小時</h2>
-        <ChartsBaseChart v-if="compactMeteogram" :option="compactMeteogram" height="260px" />
-      </section>
-
-      <!-- 雷達縮圖 -->
-      <NuxtLink to="/map" class="group relative overflow-hidden rounded-lg bg-surface-1">
-        <div class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">
-          <!-- 這張是 CWA 的整合回波原圖：3600×3600、傳輸 384 KB、解碼後 49.4 MB RGBA，
-               但在這裡只是一張約 380px 寬的裝飾縮圖。首頁是全站流量最大的頁面，不能讓它
-               跟主要內容搶頻寬與主執行緒——CWA 沒有提供低解析度版本，Workers 也沒有影像
-               處理能力可以在伺服器端縮圖，所以用瀏覽器原生的三個屬性把它徹底移出關鍵路徑：
-               lazy（捲到附近才抓，行動裝置多半根本不會抓）、async（解碼不卡主執行緒）、
-               low（優先度低於 LCP 內容）。width/height 宣告原始長寬比，讓版面不會位移。 -->
-          <img
-            v-if="latestRadar"
-            :src="latestRadar.imageUrl"
-            alt="雷達回波縮圖"
-            width="3600"
-            height="3600"
-            loading="lazy"
-            decoding="async"
-            fetchpriority="low"
-            class="h-full w-full object-cover opacity-70"
+      <!-- 7 日預報條 -->
+      <section v-if="weekAhead.length > 0" class="space-y-2">
+        <h2 class="text-sm font-medium text-text-secondary">未來 7 天</h2>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-7">
+          <div
+            v-for="period in weekAhead"
+            :key="period.startTime"
+            class="flex flex-col items-center gap-1 rounded-lg bg-surface-1 p-3 text-center"
           >
-          <span v-else>雷達影像載入中…</span>
-        </div>
-        <div class="relative flex h-full min-h-40 items-end bg-gradient-to-t from-surface-0/90 to-transparent p-4">
-          <p class="text-sm font-medium text-text-primary group-hover:text-accent">前往互動地圖 →</p>
-        </div>
-      </NuxtLink>
-    </div>
-
-    <!-- 7 日預報條 -->
-    <section v-if="weekAhead.length > 0" class="space-y-2">
-      <h2 class="text-sm font-medium text-text-secondary">未來 7 天</h2>
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-7">
-        <div
-          v-for="period in weekAhead"
-          :key="period.startTime"
-          class="flex flex-col items-center gap-1 rounded-lg bg-surface-1 p-3 text-center"
-        >
-          <p class="text-xs text-text-muted">
-            {{ formatTaipeiMonthDay(period.startTime) }}
-          </p>
-          <WeatherIcon :code="period.weatherCode" class="h-7 w-7 text-accent" />
-          <p class="tabular-nums text-sm text-text-primary">{{ period.maxTemperature }}° / {{ period.minTemperature }}°</p>
-          <div class="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-            <div class="absolute inset-y-0 rounded-full" :style="dayRangeBarStyle(period)" />
+            <p class="text-xs text-text-muted">
+              {{ formatTaipeiMonthDay(period.startTime) }}
+            </p>
+            <WeatherIcon :code="period.weatherCode" class="h-7 w-7 text-accent" />
+            <p class="tabular-nums text-sm text-text-primary">{{ period.maxTemperature }}° / {{ period.minTemperature }}°</p>
+            <div class="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+              <div class="absolute inset-y-0 rounded-full" :style="dayRangeBarStyle(period)" />
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </template>
   </div>
 </template>

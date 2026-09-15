@@ -19,7 +19,9 @@ type EarthquakeScope = 'significant' | 'all'
 // 記住使用者上次選的範圍；initOnMounted 的理由見 climate.vue 同樣的寫法
 const scope = useLocalStorage<EarthquakeScope>('earthquake-scope', 'significant', { initOnMounted: true })
 
-const { data: earthquakes } = await useFetch<Earthquake[]>('/api/earthquake/recent', {
+// status 有意義：切換「顯著有感／全部有感」會改變 key，觸發原地重新抓取（元件不會重新
+// 掛載），跟首次進站被 Suspense 整個遮住的情況不同，這個 pending 分支使用者切換範圍時看得到
+const { data: earthquakes, status: earthquakesStatus } = await useFetch<Earthquake[]>('/api/earthquake/recent', {
   query: { limit: 15, type: scope },
   key: () => `earthquake-recent-${scope.value}`
 })
@@ -182,7 +184,15 @@ watch(selected, (eq) => {
       </button>
     </div>
 
-    <div v-if="!earthquakes || earthquakes.length === 0" class="rounded-lg bg-surface-1 p-8 text-center">
+    <div v-if="earthquakesStatus === 'pending'" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      載入地震資料中…
+    </div>
+
+    <div v-else-if="!earthquakes" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      無法載入地震資料，請稍後再試。
+    </div>
+
+    <div v-else-if="earthquakes.length === 0" class="rounded-lg bg-surface-1 p-8 text-center">
       <p class="text-text-secondary">近期無{{ scope === 'significant' ? '顯著' : '' }}有感地震回報。</p>
     </div>
 

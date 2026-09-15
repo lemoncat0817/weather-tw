@@ -152,7 +152,11 @@ watch(selected, (typhoon) => {
 
 <template>
   <div class="space-y-4">
-    <div v-if="!typhoons || typhoons.length === 0" class="rounded-lg bg-surface-1 p-8 text-center">
+    <div v-if="!typhoons" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      無法載入颱風資料，請稍後再試。
+    </div>
+
+    <div v-else-if="typhoons.length === 0" class="rounded-lg bg-surface-1 p-8 text-center">
       <p class="text-text-secondary">目前無活躍的熱帶氣旋。</p>
     </div>
 

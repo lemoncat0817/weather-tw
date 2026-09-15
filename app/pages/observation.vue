@@ -18,7 +18,9 @@ const stationType = useLocalStorage<StationType>('observation-station-type', 'we
 const precipRange = useLocalStorage<PrecipRangeKey>('observation-precip-range', 'now', { initOnMounted: true })
 const precipRangeLabel = computed(() => PRECIP_RANGES.find((r) => r.key === precipRange.value)?.label ?? '')
 
-const { data: stations } = await useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations', {
+// status 有意義：切換「氣象站／雨量站」會改變 key，觸發原地重新抓取（元件不會重新掛載），
+// 跟首次進站被 Suspense 整個遮住的情況不同，這個 pending 分支使用者切換頁籤時看得到
+const { data: stations, status } = await useFetch<GeoFeatureCollection<GeoPoint, Observation>>('/api/observation/stations', {
   query: { type: stationType },
   key: () => `observation-stations-${stationType.value}`
 })
@@ -176,60 +178,69 @@ watch(precipRange, () => {
       </button>
     </div>
 
-    <section class="h-96 overflow-hidden rounded-lg bg-surface-1">
-      <MapBaseMap @ready="onMapReady" />
-    </section>
+    <div v-if="status === 'pending'" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      載入測站資料中…
+    </div>
+    <div v-else-if="!stations" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
+      無法載入測站資料，請稍後再試。
+    </div>
 
-    <section class="overflow-x-auto rounded-lg bg-surface-1">
-      <table class="w-full min-w-[42rem] text-left text-sm">
-        <thead>
-          <tr class="border-b border-surface-2 text-text-muted">
-            <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('stationName')">測站</th>
-            <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('county')">縣市/鄉鎮</th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('temperature')">溫度</th>
-            <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">今日高/低</th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('relativeHumidity')">濕度</th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('windSpeed')">風速</th>
-            <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">陣風</th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('precipitation')">
-              雨量{{ stationType === 'rain' ? `（${precipRangeLabel}）` : '' }}
-            </th>
-            <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('obsTime')">觀測時間</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in sortedRows" :key="s.stationId" class="border-b border-surface-2/60 hover:bg-surface-2/40">
-            <td
-              class="px-3 py-1.5 text-text-primary"
-              :title="s.reading.weatherDescription ? `${s.reading.weatherDescription}・能見度 ${s.reading.visibility ?? '—'} km・海拔 ${s.altitude ?? '—'} m` : undefined"
-            >
-              {{ s.stationName }}
-            </td>
-            <td class="px-3 py-1.5 text-text-secondary">{{ s.county }}{{ s.town }}</td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.temperature ?? '—' }}</td>
-            <td v-if="stationType === 'weather'" class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
-              <template v-if="s.reading.dailyExtreme">
-                {{ s.reading.dailyExtreme.highTemperature ?? '—' }} / {{ s.reading.dailyExtreme.lowTemperature ?? '—' }}
-              </template>
-              <template v-else>—</template>
-            </td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.relativeHumidity ?? '—' }}</td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.windSpeed ?? '—' }}</td>
-            <td
-              v-if="stationType === 'weather'"
-              class="px-3 py-1.5 text-right tabular-nums text-text-secondary"
-              :title="s.reading.peakGust?.time ? `發生於 ${formatTaipeiTime(s.reading.peakGust.time)}` : undefined"
-            >
-              {{ s.reading.peakGust?.speed ?? '—' }}
-            </td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
-              {{ stationType === 'rain' ? (precipitationValue(s.reading, precipRange) ?? '—') : (s.reading.precipitation ?? '—') }}
-            </td>
-            <td class="px-3 py-1.5 text-right tabular-nums text-text-muted">{{ formatTaipei(s.obsTime) }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="sortedRows.length === 0" class="p-6 text-center text-text-muted">找不到符合的測站。</p>
-    </section>
+    <template v-else>
+      <section class="h-96 overflow-hidden rounded-lg bg-surface-1">
+        <MapBaseMap @ready="onMapReady" />
+      </section>
+
+      <section class="overflow-x-auto rounded-lg bg-surface-1">
+        <table class="w-full min-w-[42rem] text-left text-sm">
+          <thead>
+            <tr class="border-b border-surface-2 text-text-muted">
+              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('stationName')">測站</th>
+              <th class="cursor-pointer px-3 py-2 font-normal" @click="toggleSort('county')">縣市/鄉鎮</th>
+              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('temperature')">溫度</th>
+              <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">今日高/低</th>
+              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('relativeHumidity')">濕度</th>
+              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('windSpeed')">風速</th>
+              <th v-if="stationType === 'weather'" class="px-3 py-2 text-right font-normal">陣風</th>
+              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('precipitation')">
+                雨量{{ stationType === 'rain' ? `（${precipRangeLabel}）` : '' }}
+              </th>
+              <th class="cursor-pointer px-3 py-2 text-right font-normal" @click="toggleSort('obsTime')">觀測時間</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in sortedRows" :key="s.stationId" class="border-b border-surface-2/60 hover:bg-surface-2/40">
+              <td
+                class="px-3 py-1.5 text-text-primary"
+                :title="s.reading.weatherDescription ? `${s.reading.weatherDescription}・能見度 ${s.reading.visibility ?? '—'} km・海拔 ${s.altitude ?? '—'} m` : undefined"
+              >
+                {{ s.stationName }}
+              </td>
+              <td class="px-3 py-1.5 text-text-secondary">{{ s.county }}{{ s.town }}</td>
+              <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.temperature ?? '—' }}</td>
+              <td v-if="stationType === 'weather'" class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
+                <template v-if="s.reading.dailyExtreme">
+                  {{ s.reading.dailyExtreme.highTemperature ?? '—' }} / {{ s.reading.dailyExtreme.lowTemperature ?? '—' }}
+                </template>
+                <template v-else>—</template>
+              </td>
+              <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.relativeHumidity ?? '—' }}</td>
+              <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">{{ s.reading.windSpeed ?? '—' }}</td>
+              <td
+                v-if="stationType === 'weather'"
+                class="px-3 py-1.5 text-right tabular-nums text-text-secondary"
+                :title="s.reading.peakGust?.time ? `發生於 ${formatTaipeiTime(s.reading.peakGust.time)}` : undefined"
+              >
+                {{ s.reading.peakGust?.speed ?? '—' }}
+              </td>
+              <td class="px-3 py-1.5 text-right tabular-nums text-text-secondary">
+                {{ stationType === 'rain' ? (precipitationValue(s.reading, precipRange) ?? '—') : (s.reading.precipitation ?? '—') }}
+              </td>
+              <td class="px-3 py-1.5 text-right tabular-nums text-text-muted">{{ formatTaipei(s.obsTime) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="sortedRows.length === 0" class="p-6 text-center text-text-muted">找不到符合的測站。</p>
+      </section>
+    </template>
   </div>
 </template>

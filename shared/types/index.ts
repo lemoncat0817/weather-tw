@@ -590,11 +590,7 @@ export type AirQualityLevel =
   | 'hazardous'
   | 'unavailable'
 
-/**
- * 單一測站的即時空氣品質（AQX_P_432 跟測站座標 AQX_P_07 join 後的結果）。AQX_P_432 本身
- * 沒有座標欄位，只能用測站名稱對照——找不到對應座標的測站會在 normalizer 階段被濾掉，
- * 不會出現在這裡。
- */
+/** 單一測站的即時空氣品質（AQX_P_432），本身就帶座標，不需要跟其他資料集 join。 */
 export interface AirQualityStation {
   siteName: string
   county: string
@@ -610,4 +606,28 @@ export interface AirQualityStation {
   co: number | null
   no2: number | null
   publishTime: string
+}
+
+// ---------------------------------------------------------------------------
+// 水庫水情（經濟部水利署水利資料開放平台，非 CWA；水庫水情 + 水庫基本資料，全程免金鑰）
+// ---------------------------------------------------------------------------
+
+/**
+ * 單一水庫最新一筆水情（水庫水情即時資料，跟水庫基本資料的容量規格 join 後的結果）。
+ * 只收錄「水庫基本資料」有公告容量規格、且能找到座標對照（見 server/utils/reservoirCoords.ts）
+ * 的水庫；水情資料集裡另外還有約 30 個沒有規格資料的小型埤塘，一律濾掉。
+ */
+export interface ReservoirStatus {
+  id: string
+  name: string
+  coordinates: Coordinates
+  observationTime: string
+  /** 水位（公尺） */
+  waterLevel: number | null
+  /** 蓄水率（%）＝即時有效蓄水量 ÷ 最近一次測量的有效容量。兩者其中一個缺值時為 null，
+   *  不強行湊出一個看似合理但其實沒意義的數字 */
+  storagePercentage: number | null
+  /** 進流量、出流量（CMS，立方公尺/秒）——依業界慣例標示單位，官方文件沒有逐欄位附單位說明 */
+  inflow: number | null
+  outflow: number | null
 }

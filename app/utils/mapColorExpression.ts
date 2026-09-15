@@ -69,3 +69,26 @@ export function airQualityColorExpression(field: string, colorFn: (level: string
   const cases = levels.flatMap((level) => [level, colorFn(level)])
   return ['match', ['get', field], ...cases, colorFn('unavailable')] as unknown as ExpressionSpecification
 }
+
+/**
+ * 水庫蓄水率專用：數值是連續的（跟溫度一樣該用 interpolate），但蓄水率可能是
+ * null（缺容量規格或缺即時讀值時）——MapLibre 的 interpolate 遇到 null 會直接噴錯，
+ * 跟溫度/風速那兩支不同，這裡要先用 case expression 把 null 撇開，其餘才走內插。
+ */
+export function reservoirStorageColorExpression(
+  field: string,
+  colorFn: (percentage: number | null) => string
+): ExpressionSpecification {
+  const steps = 6
+  const stops: (string | number)[] = []
+  for (let i = 0; i < steps; i++) {
+    const t = (i / (steps - 1)) * 100
+    stops.push(t, colorFn(t))
+  }
+  return [
+    'case',
+    ['==', ['get', field], null],
+    colorFn(null),
+    ['interpolate', ['linear'], ['get', field], ...stops]
+  ] as unknown as ExpressionSpecification
+}

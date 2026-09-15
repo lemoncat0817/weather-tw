@@ -97,5 +97,15 @@ export default defineNuxtConfig({
     config: {
       stylistic: false // 交給 prettier 處理格式
     }
+  },
+
+  hooks: {
+    ready(nuxt) {
+      if (nuxt.options.dev && !process.env.NUXT_CWA_API_KEY) {
+        console.warn(
+          '[weather-tw] 未設定 NUXT_CWA_API_KEY，本地無法獲取氣象資料。請於 .env 填入金鑰（https://opendata.cwa.gov.tw）。'
+        )
+      }
+    }
   }
 })

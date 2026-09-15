@@ -304,6 +304,60 @@ export interface Earthquake {
 }
 
 // ---------------------------------------------------------------------------
+// 海嘯資訊（E-A0014-001）
+// ---------------------------------------------------------------------------
+
+/** 警戒分區的預估波（實測 InfoStatus 目前只出現 'predict'）；分區固定 6 個
+ *  （北部/東北/東部/東南/西南/海峽沿海地區，見 CWA 警戒分區劃分表） */
+export interface TsunamiWarningArea {
+  areaName: string
+  areaDescription: string
+  areaColor: string
+  arrivalTime: string
+  waveHeight: string
+  infoStatus: string
+}
+
+/** 潮位站的實測波（實測 InfoStatus 目前只出現 'observe'），跟警戒分區是兩個不同精細度的角度——
+ *  分區是官方預估轄區代表值，測站是實際觀測到的瞬間 */
+export interface TsunamiStationReading {
+  stationId: string
+  stationName: string
+  position: Coordinates
+  arrivalTime: string
+  waveHeight: string
+  infoStatus: string
+}
+
+/**
+ * 一筆海嘯資訊發布（E-A0014-001）。同一場海嘯事件（tsunamiNo 相同）會隨事態發展多次發布
+ * （海嘯消息→海嘯警訊/警報→海嘯警報解除），各自一筆記錄，不像地震一次事件只有一筆——
+ * 呼叫端若只想看目前是否仍有效，自行比對 validUntil。warningAreas/stations 只有實際評估
+ * 出威脅時才有內容，「海嘯消息」這類已解除／無威脅的通報兩者皆為空陣列。
+ */
+export interface TsunamiReport {
+  id: string
+  tsunamiNo: number
+  reportNo: string
+  reportType: string
+  reportColor: string
+  reportContent: string
+  issueTime: string
+  validUntil: string | null
+  web: string | null
+  earthquake: {
+    originTime: string
+    source: string
+    depthKm: number
+    magnitude: number
+    epicenter: Coordinates
+    epicenterDescription: string
+  }
+  warningAreas: TsunamiWarningArea[]
+  stations: TsunamiStationReading[]
+}
+
+// ---------------------------------------------------------------------------
 // 歷史趨勢／氣候比較
 // ---------------------------------------------------------------------------
 

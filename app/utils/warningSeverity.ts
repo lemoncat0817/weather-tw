@@ -32,3 +32,18 @@ export const CAP_SEVERITY_LABEL: Record<string, string> = {
   Severe: '嚴重',
   Extreme: '極端'
 }
+
+/** 海嘯資訊（E-A0014-001）的 ReportColor 是官方判定好的四階顏色字串（實測只出現這四種），
+ *  直接對應同一組 --color-severity-* 分級，不用再靠關鍵字猜。 */
+export function tsunamiColorClass(reportColor: string): string {
+  switch (reportColor) {
+    case '紅色':
+      return 'bg-severity-emergency/15 text-severity-emergency'
+    case '橙色':
+      return 'bg-severity-warning/15 text-severity-warning'
+    case '黃色':
+      return 'bg-severity-watch/15 text-severity-watch'
+    default:
+      return 'bg-severity-advisory/15 text-severity-advisory'
+  }
+}

@@ -100,8 +100,10 @@ const weekAhead = computed(() => forecast.value?.extended.filter((_, i) => i % 2
         to="/typhoon"
         class="rounded-lg bg-severity-watch/10 p-4 hover:bg-severity-watch/15"
       >
-        <p class="text-sm font-medium text-severity-watch">颱風動態</p>
-        <p class="mt-1 text-text-primary">{{ typhoons!.map((t) => t.nameZh).join('、') }}</p>
+        <p class="text-sm font-medium text-severity-watch">
+          {{ typhoons!.every((t) => t.classification === 'tropical-depression') ? '熱帶性低氣壓動態' : '颱風動態' }}
+        </p>
+        <p class="mt-1 text-text-primary">{{ typhoons!.map((t) => t.nameZh || t.name).join('、') }}</p>
       </NuxtLink>
       <NuxtLink v-if="(earthquakes?.length ?? 0) > 0" to="/earthquake" class="rounded-lg bg-surface-1 p-4 hover:bg-surface-2">
         <p class="text-sm font-medium text-text-secondary">最新地震</p>

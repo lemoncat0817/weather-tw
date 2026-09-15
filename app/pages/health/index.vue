@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
 import type { MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import { loadMapLibre } from '@/utils/maplibre'
-import type { GeoFeatureCollection, GeoPolygon, HeatInjuryTownForecast } from '#shared/types'
-import { heatInjuryColorExpression } from '@/utils/mapColorExpression'
-import { heatInjuryColor } from '@/utils/colorScales'
-import { HEAT_INJURY_LEVEL_LABEL } from '@/utils/healthChart'
-import { joinHeatInjuryBoundaries } from '@/utils/healthGeo'
+import type { GeoFeatureCollection, GeoPolygon, HealthIndexTownForecast } from '#shared/types'
+import { healthIndexColorExpression } from '@/utils/mapColorExpression'
+import { healthIndexColor } from '@/utils/colorScales'
+import { HEALTH_INDEX_LEVEL_LABEL } from '@/utils/healthChart'
+import { joinHealthIndexBoundaries } from '@/utils/healthGeo'
 import { formatTaipei } from '@/utils/formatDate'
+import { HEALTH_METRICS, HEALTH_METRIC_LIST, type HealthMetric } from '@/utils/healthMetrics'
+
+// 記住使用者上次選的因子；跟 /health/[county]/[town] 頁共用同一把 key，兩頁切換因子時保持一致
+const metric = useLocalStorage<HealthMetric>('health-metric', 'heat', { initOnMounted: true })
+const config = computed(() => HEALTH_METRICS[metric.value])
 
 useSeoMeta({
-  title: '健康氣象 — 氣象知多少',
-  description: '全台 368 鄉鎮未來 5 天熱傷害指數與官方四級警示地圖，可拖曳時間軸查看逐 3 小時變化。'
+  title: () => `${config.value.label}指數 — 氣象知多少`,
+  description: () =>
+    `全台 368 鄉鎮${config.value.durationLabel}${config.value.label}指數與官方四級警示地圖，可拖曳時間軸查看逐 3 小時變化。`
 })
 
 const LEGEND_LEVELS = [
@@ -27,7 +34,10 @@ const LEGEND_LEVELS = [
 // 690 KB、payload 600 KB，全部都是 hydration 時要重新 parse 一遍、但畫面上一個字都沒用到
 // 的東西。改成瀏覽器端抓，HTML 縮到 15 KB 左右，頁面骨架立刻出現，資料到了再補上。
 // 頁面本來就有載入中的狀態顯示，使用者體驗不變。
-const { data: towns, status } = useFetch<HeatInjuryTownForecast[]>('/api/health/heat/summary', { server: false })
+const { data: towns, status } = useFetch<HealthIndexTownForecast[]>(
+  () => `/api/health/${config.value.path}/summary`,
+  { server: false, key: () => `health-summary-${metric.value}` }
+)
 
 // 載入中／載入失敗的判斷刻意看 `towns` 而不是 `status`：`server: false` 的請求在伺服器端
 // 根本不會發動，status 停在 'idle'，但瀏覽器 hydration 那一輪它已經變成 'pending'——
@@ -35,13 +45,21 @@ const { data: towns, status } = useFetch<HeatInjuryTownForecast[]>('/api/health/
 // 和 hydration 當下都還是 null，兩邊一致，等資料真的回來才切換到內容。
 const isLoading = computed(() => !towns.value && status.value !== 'error')
 
-// 39 個時間點對所有鄉鎮都一致（同一批 issue time），取第一個鄉鎮的時間軸代表全部即可
+// 時間點數對所有鄉鎮都一致（同一批 issue time），取第一個鄉鎮的時間軸代表全部即可；
+// 熱傷害是 39 個點（5 天），冷傷害／溫差提醒是 24 個點（72 小時），長度不一定相同
 const times = computed(() => towns.value?.[0]?.readings.map((r) => r.time) ?? [])
 const timeIndex = ref(0)
 const currentTime = computed(() => times.value[timeIndex.value] ?? null)
 
 const isPlaying = ref(false)
 let playTimer: ReturnType<typeof setInterval> | null = null
+function stopPlaying() {
+  isPlaying.value = false
+  if (playTimer) {
+    clearInterval(playTimer)
+    playTimer = null
+  }
+}
 function togglePlay() {
   isPlaying.value = !isPlaying.value
   if (isPlaying.value) {
@@ -53,8 +71,13 @@ function togglePlay() {
     playTimer = null
   }
 }
-onBeforeUnmount(() => {
-  if (playTimer) clearInterval(playTimer)
+onBeforeUnmount(stopPlaying)
+
+// 切換因子後時間點數可能變短（例如熱傷害切到冷傷害），舊的 timeIndex 可能已超出範圍，
+// 歸零並停止播放，避免拖曳條卡在一個不存在的時間點
+watch(metric, () => {
+  timeIndex.value = 0
+  stopPlaying()
 })
 
 const showTable = ref(false)
@@ -72,13 +95,13 @@ const tableRows = computed(() => {
 // --- 地圖 ---
 const mapInstance = shallowRef<MapLibreMap | null>(null)
 const boundaries = shallowRef<GeoFeatureCollection<GeoPolygon, { county: string; town: string }> | null>(null)
-const SOURCE = 'heat-injury'
-const FILL_LAYER = 'heat-injury-fill'
-const LINE_LAYER = 'heat-injury-line'
+const SOURCE = 'health-index'
+const FILL_LAYER = 'health-index-fill'
+const LINE_LAYER = 'health-index-line'
 
 function renderMap(map: MapLibreMap) {
   if (!boundaries.value || !towns.value) return
-  const data = joinHeatInjuryBoundaries(boundaries.value, towns.value, timeIndex.value)
+  const data = joinHealthIndexBoundaries(boundaries.value, towns.value, timeIndex.value)
   const existing = map.getSource<GeoJSONSource>(SOURCE)
   if (existing) {
     existing.setData(data)
@@ -90,7 +113,7 @@ function renderMap(map: MapLibreMap) {
     id: FILL_LAYER,
     type: 'fill',
     source: SOURCE,
-    paint: { 'fill-color': heatInjuryColorExpression('level', heatInjuryColor), 'fill-opacity': 0.75 }
+    paint: { 'fill-color': healthIndexColorExpression('level', healthIndexColor), 'fill-opacity': 0.75 }
   })
   map.addLayer({
     id: LINE_LAYER,
@@ -103,7 +126,7 @@ function renderMap(map: MapLibreMap) {
     const f = e.features?.[0]
     if (!f) return
     const props = f.properties as { county: string; town: string; index: number; level: string }
-    const label = HEAT_INJURY_LEVEL_LABEL[props.level] ?? props.level
+    const label = HEALTH_INDEX_LEVEL_LABEL[props.level] ?? props.level
     const href = `/health/${encodeURIComponent(props.county)}/${encodeURIComponent(props.town)}`
     // 地圖已經在畫面上，maplibre 模組必然載入過了，這個 await 是模組快取的同步命中
     const { Popup } = await loadMapLibre()
@@ -141,12 +164,25 @@ watch(towns, () => {
 
 <template>
   <div class="space-y-4">
+    <div class="flex w-fit overflow-hidden rounded-lg border border-surface-2 bg-surface-1">
+      <button
+        v-for="m in HEALTH_METRIC_LIST"
+        :key="m"
+        type="button"
+        class="px-3 py-1.5 text-sm"
+        :class="metric === m ? 'bg-accent text-surface-0' : 'text-text-secondary hover:bg-surface-2'"
+        @click="metric = m"
+      >
+        {{ HEALTH_METRICS[m].label }}
+      </button>
+    </div>
+
     <div v-if="isLoading" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
-      載入熱傷害指數中…
+      載入{{ config.label }}指數中…
     </div>
 
     <div v-else-if="!towns" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
-      無法載入熱傷害指數，請稍後再試。
+      無法載入{{ config.label }}指數，請稍後再試。
     </div>
 
     <template v-else>
@@ -180,7 +216,7 @@ watch(towns, () => {
       <div class="flex flex-wrap items-center gap-3 rounded-lg bg-surface-1 px-3 py-2 text-xs text-text-secondary">
         <span class="text-text-muted">等級</span>
         <span v-for="l in LEGEND_LEVELS" :key="l.key" class="flex items-center gap-1.5">
-          <span class="h-3 w-3 rounded-sm" :style="{ backgroundColor: heatInjuryColor(l.key) }" />
+          <span class="h-3 w-3 rounded-sm" :style="{ backgroundColor: healthIndexColor(l.key) }" />
           {{ l.label }}
         </span>
       </div>
@@ -219,9 +255,9 @@ watch(towns, () => {
               <td class="px-3 py-1.5">
                 <span
                   class="rounded-md px-2 py-0.5 text-xs font-medium"
-                  :style="{ backgroundColor: `${heatInjuryColor(r.reading.level)}26`, color: heatInjuryColor(r.reading.level) }"
+                  :style="{ backgroundColor: `${healthIndexColor(r.reading.level)}26`, color: healthIndexColor(r.reading.level) }"
                 >
-                  {{ HEAT_INJURY_LEVEL_LABEL[r.reading.level] ?? r.reading.level }}
+                  {{ HEALTH_INDEX_LEVEL_LABEL[r.reading.level] ?? r.reading.level }}
                 </span>
               </td>
             </tr>
@@ -231,7 +267,7 @@ watch(towns, () => {
       </section>
 
       <p class="text-xs text-text-muted">
-        資料來源：中央氣象署健康氣象（M-A0085-001），每 3 小時一格、涵蓋未來 5 天。指數與四級警示由 CWA
+        資料來源：{{ config.datasetNote }}，每 3 小時一格、涵蓋{{ config.durationLabel }}。指數與四級警示由 CWA
         逐鄉鎮計算，戶外活動請以官方發布為準。
       </p>
     </template>

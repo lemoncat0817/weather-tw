@@ -13,13 +13,15 @@ export default defineCachedEventHandler(
       throw createError({ statusCode: 404, message: `找不到縣市「${county}」` })
     }
 
-    const [hourlyRaw, extendedRaw, sunTimes] = await Promise.all([
+    const [hourlyRaw, extendedRaw, sunTimes, moonTimes] = await Promise.all([
       fetchDataset(ids.threeDay, { locationId: ids.threeDay, LocationName: town }),
       fetchDataset(ids.week, { locationId: ids.week, LocationName: town }),
       // 日出日沒是逐時圖表的錦上添花（畫夜間陰影帶），不是預報本身——失敗退回 null，
       // 頁面就不畫陰影帶。這支走 sunTimesFor 的縣市級函式快取，不跟著鄉鎮各快取一份：
       // 同縣市同一天的答案完全相同，沒必要讓 368 個鄉鎮各自去問 CWA 一次（見 sunTimes.ts）
-      sunTimesFor(county, todayInTaipei())
+      sunTimesFor(county, todayInTaipei()),
+      // 月出月沒同理，見 moonTimes.ts
+      moonTimesFor(county, todayInTaipei())
     ])
 
     const hourly = normalizeTownHourly(hourlyRaw as never, county)
@@ -31,6 +33,10 @@ export default defineCachedEventHandler(
     if (sunTimes) {
       hourly.sunrise = sunTimes.sunrise
       hourly.sunset = sunTimes.sunset
+    }
+    if (moonTimes) {
+      hourly.moonrise = moonTimes.moonrise
+      hourly.moonset = moonTimes.moonset
     }
     return hourly
   },

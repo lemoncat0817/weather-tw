@@ -93,6 +93,9 @@ export interface TownForecast {
   extended: TownForecastPeriod[]
   sunrise?: string
   sunset?: string
+  /** 當日月出／月沒（A-B0063-001）；null 表示該日確實無此現象（約每月一次），不是抓取失敗 */
+  moonrise?: string | null
+  moonset?: string | null
 }
 
 /** 全台鄉鎮預報摘要（choropleth 用），只取「目前」這一個時間點的代表值，不含完整逐時序列 */
@@ -225,6 +228,8 @@ export interface Typhoon {
   year: number
   name: string
   nameZh: string
+  /** 系統類別：已命名颱風或尚未命名的熱帶性低氣壓 */
+  classification: 'typhoon' | 'tropical-depression'
   /** 歷史觀測路徑，由舊到新 */
   track: TyphoonFixPoint[]
   /** 未來預報路徑，由近到遠 */
@@ -298,6 +303,60 @@ export interface Earthquake {
   shakingAreas: EarthquakeShakingArea[]
   stations: EarthquakeStation[]
   shakemapImageUrl: string | null
+}
+
+// ---------------------------------------------------------------------------
+// 海嘯資訊（E-A0014-001）
+// ---------------------------------------------------------------------------
+
+/** 警戒分區的預估波（實測 InfoStatus 目前只出現 'predict'）；分區固定 6 個
+ *  （北部/東北/東部/東南/西南/海峽沿海地區，見 CWA 警戒分區劃分表） */
+export interface TsunamiWarningArea {
+  areaName: string
+  areaDescription: string
+  areaColor: string
+  arrivalTime: string
+  waveHeight: string
+  infoStatus: string
+}
+
+/** 潮位站的實測波（實測 InfoStatus 目前只出現 'observe'），跟警戒分區是兩個不同精細度的角度——
+ *  分區是官方預估轄區代表值，測站是實際觀測到的瞬間 */
+export interface TsunamiStationReading {
+  stationId: string
+  stationName: string
+  position: Coordinates
+  arrivalTime: string
+  waveHeight: string
+  infoStatus: string
+}
+
+/**
+ * 一筆海嘯資訊發布（E-A0014-001）。同一場海嘯事件（tsunamiNo 相同）會隨事態發展多次發布
+ * （海嘯消息→海嘯警訊/警報→海嘯警報解除），各自一筆記錄，不像地震一次事件只有一筆——
+ * 呼叫端若只想看目前是否仍有效，自行比對 validUntil。warningAreas/stations 只有實際評估
+ * 出威脅時才有內容，「海嘯消息」這類已解除／無威脅的通報兩者皆為空陣列。
+ */
+export interface TsunamiReport {
+  id: string
+  tsunamiNo: number
+  reportNo: string
+  reportType: string
+  reportColor: string
+  reportContent: string
+  issueTime: string
+  validUntil: string | null
+  web: string | null
+  earthquake: {
+    originTime: string
+    source: string
+    depthKm: number
+    magnitude: number
+    epicenter: Coordinates
+    epicenterDescription: string
+  }
+  warningAreas: TsunamiWarningArea[]
+  stations: TsunamiStationReading[]
 }
 
 // ---------------------------------------------------------------------------
@@ -425,29 +484,44 @@ export interface WarningDetail {
 }
 
 // ---------------------------------------------------------------------------
-// 健康氣象（M-A0085-001 熱傷害指數）
+// 健康氣象（CWA「健康氣象」系列共用形狀：熱傷害 M-A0085-001、冷傷害 F-A0085-003、
+// 溫差提醒 F-A0085-005，同一套系統依相同殼架構產生，只有指數/警示的因子名稱不同）
 // ---------------------------------------------------------------------------
 
 /** CWA 官方四級警示；'none' 對應原始資料的空字串（未達注意等級） */
-export type HeatInjuryLevel = 'none' | 'caution' | 'watch' | 'danger' | 'high-danger'
+export type HealthIndexLevel = 'none' | 'caution' | 'watch' | 'danger' | 'high-danger'
 
-export interface HeatInjuryReading {
+export interface HealthIndexReading {
   time: string
   index: number
-  level: HeatInjuryLevel
+  level: HealthIndexLevel
 }
 
 /**
- * 單一鄉鎮的熱傷害指數序列（5 天、3 小時一格，共 39 筆）。
- * 全台摘要（/api/health/heat/summary）與單一鄉鎮明細（/api/health/heat/[county]/[town]）
- * 共用同一個形狀，差別只在前者是 368 筆鄉鎮陣列、後者是單一鄉鎮。
+ * 單一鄉鎮的健康氣象指數序列。全台摘要（.../summary）與單一鄉鎮明細（.../[county]/[town]）
+ * 共用同一個形狀，差別只在前者是全台鄉鎮陣列、後者是單一鄉鎮；序列長度依上游資料集的
+ * 涵蓋範圍而不同（熱傷害 5 天/39 筆，冷傷害與溫差提醒是 72 小時/24 筆）。
  */
-export interface HeatInjuryTownForecast {
+export interface HealthIndexTownForecast {
   county: string
   town: string
   coordinates: Coordinates
-  readings: HeatInjuryReading[]
+  readings: HealthIndexReading[]
 }
+
+// 以下三組別名對應各自的上游資料集，型別上完全相同（同一套系統的三個因子），
+// 只是讓呼叫端用領域名稱而不是泛用名稱，讀起來更清楚是哪個指數
+export type HeatInjuryLevel = HealthIndexLevel
+export type HeatInjuryReading = HealthIndexReading
+export type HeatInjuryTownForecast = HealthIndexTownForecast
+
+export type ColdInjuryLevel = HealthIndexLevel
+export type ColdInjuryReading = HealthIndexReading
+export type ColdInjuryTownForecast = HealthIndexTownForecast
+
+export type TemperatureDifferenceLevel = HealthIndexLevel
+export type TemperatureDifferenceReading = HealthIndexReading
+export type TemperatureDifferenceTownForecast = HealthIndexTownForecast
 
 // ---------------------------------------------------------------------------
 // 海象（浮標／潮位站觀測 + 潮汐預報）

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeHeatInjurySummary, normalizeHeatInjuryTown } from '../health'
+import {
+  normalizeColdInjurySummary,
+  normalizeColdInjuryTown,
+  normalizeHeatInjurySummary,
+  normalizeHeatInjuryTown,
+  normalizeTemperatureDifferenceSummary
+} from '../health'
 
 // 節錄自 M-A0085-001 實際回應，涵蓋五種警示字串（含空字串）
 const RAW = {
@@ -91,5 +97,86 @@ describe('normalizeHeatInjuryTown', () => {
   it('找不到資料（Locations 為空）回傳 null', () => {
     const town = normalizeHeatInjuryTown({ records: { Locations: [] } } as never)
     expect(town).toBeNull()
+  })
+})
+
+// 冷傷害（F-A0085-003）與熱傷害同一套系統、同一個殼架構，只有 WeatherElements 底下的
+// 欄位名稱不同（ColdInjuryIndex/ColdInjuryWarning）；四級門檻對照表見官方輔助說明文件
+// （F-A0085-002_003.pdf），字串與熱傷害共用同一套 注意/警戒/危險/高危險。
+const COLD_RAW = {
+  records: {
+    Locations: [
+      {
+        CountyName: '臺北市',
+        Location: [
+          {
+            TownName: '信義區',
+            Geocode: '63000090',
+            Latitude: '25.03',
+            Longitude: '121.57',
+            Time: [
+              { IssueTime: '2026-01-10 00:00:00', WeatherElements: { ColdInjuryIndex: 12, ColdInjuryWarning: '注意' } },
+              { IssueTime: '2026-01-10 03:00:00', WeatherElements: { ColdInjuryIndex: 6, ColdInjuryWarning: '危險' } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+describe('normalizeColdInjurySummary / normalizeColdInjuryTown', () => {
+  it('讀取 ColdInjuryIndex/ColdInjuryWarning（跟熱傷害的欄位名稱不同）', () => {
+    const [town] = normalizeColdInjurySummary(COLD_RAW as never)
+    expect(town!.readings.map((r) => ({ index: r.index, level: r.level }))).toEqual([
+      { index: 12, level: 'caution' },
+      { index: 6, level: 'danger' }
+    ])
+  })
+
+  it('單一鄉鎮明細取第一筆', () => {
+    const town = normalizeColdInjuryTown(COLD_RAW as never)
+    expect(town).toMatchObject({ county: '臺北市', town: '信義區' })
+  })
+})
+
+// 溫差提醒（F-A0085-005）節錄自實際回應（2026-09-15 打的真實 API）：欄位名稱
+// TemperatureDifferenceIndex/TemperatureDifferenceWarning 與四級警示字串跟熱/冷傷害共用同一套，
+// 但 IssueTime 已經自帶 "+08:00"——跟熱/冷傷害的 naive "YYYY-MM-DD HH:MM:SS" 不一樣，
+// 這是實測才發現的既有陷阱（見 toTaipeiIso 的處理）。
+const TEMPERATURE_DIFFERENCE_RAW = {
+  records: {
+    Locations: [
+      {
+        CountyName: '嘉義市',
+        Location: [
+          {
+            TownName: '東區',
+            Geocode: '10020010',
+            Latitude: '23.48040009',
+            Longitude: '120.44499970',
+            Time: [
+              { IssueTime: '2026-09-16T00:00:00+08:00', WeatherElements: { TemperatureDifferenceIndex: 7, TemperatureDifferenceWarning: '注意' } },
+              { IssueTime: '2026-09-17T21:00:00+08:00', WeatherElements: { TemperatureDifferenceIndex: 6, TemperatureDifferenceWarning: '' } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+describe('normalizeTemperatureDifferenceSummary', () => {
+  it('讀取 TemperatureDifferenceIndex/TemperatureDifferenceWarning，警示字串跟熱/冷傷害共用同一套對照表', () => {
+    const [town] = normalizeTemperatureDifferenceSummary(TEMPERATURE_DIFFERENCE_RAW as never)
+    expect(town!.readings.map((r) => ({ index: r.index, level: r.level }))).toEqual([
+      { index: 7, level: 'caution' },
+      { index: 6, level: 'none' }
+    ])
+  })
+
+  it('IssueTime 本身已經帶 +08:00（跟熱/冷傷害的 naive 格式不同），不會被疊加成 +08:00+08:00', () => {
+    const [town] = normalizeTemperatureDifferenceSummary(TEMPERATURE_DIFFERENCE_RAW as never)
+    expect(town!.readings[0]!.time).toBe('2026-09-16T00:00:00+08:00')
   })
 })

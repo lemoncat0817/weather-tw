@@ -3,11 +3,12 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import type { MapLibreMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl'
 import { loadMapLibre } from '@/utils/maplibre'
-import type { Earthquake, EarthquakeStation, GeoFeatureCollection, GeoPoint } from '#shared/types'
+import type { Earthquake, EarthquakeStation, GeoFeatureCollection, GeoPoint, TsunamiReport } from '#shared/types'
 import { buildIntensityBarOption } from '@/utils/earthquakeChart'
 import { seismicIntensityColor } from '@/utils/colorScales'
 import { seismicIntensityColorExpression } from '@/utils/mapColorExpression'
 import { formatTaipei } from '@/utils/formatDate'
+import { tsunamiColorClass } from '@/utils/warningSeverity'
 
 useSeoMeta({
   title: '地震資訊 — 氣象知多少',
@@ -21,6 +22,18 @@ const scope = useLocalStorage<EarthquakeScope>('earthquake-scope', 'significant'
 const { data: earthquakes } = await useFetch<Earthquake[]>('/api/earthquake/recent', {
   query: { limit: 15, type: scope },
   key: () => `earthquake-recent-${scope.value}`
+})
+
+// 海嘯事件極罕見，只在「目前仍在有效期內」時才顯示成頁面頂端的警示條；validUntil 已過去的
+// 舊發布（包含「海嘯警報解除」本身，它的 EndTime 往往剛好落在發布當下附近）一律不顯示，
+// 平常這個區塊完全不出現，不佔用畫面空間
+const { data: tsunamis } = await useFetch<TsunamiReport[]>('/api/tsunami/recent', {
+  query: { limit: 5 },
+  key: 'tsunami-recent'
+})
+const activeTsunami = computed(() => {
+  const now = Date.now()
+  return tsunamis.value?.find((t) => t.validUntil && new Date(t.validUntil).getTime() > now) ?? null
 })
 
 const selectedId = ref<string | null>(null)
@@ -131,6 +144,25 @@ watch(selected, (eq) => {
 
 <template>
   <div class="space-y-4">
+    <section v-if="activeTsunami" class="space-y-2 rounded-lg p-4" :class="tsunamiColorClass(activeTsunami.reportColor)">
+      <p class="text-sm font-semibold">{{ activeTsunami.reportType }}・{{ activeTsunami.reportNo }}</p>
+      <p class="text-sm">{{ activeTsunami.reportContent }}</p>
+      <ul v-if="activeTsunami.warningAreas.length > 0" class="space-y-0.5 text-xs">
+        <li v-for="a in activeTsunami.warningAreas" :key="a.areaName">
+          {{ a.areaName }}（{{ a.areaDescription }}）：預估 {{ formatTaipei(a.arrivalTime) }} 到達，波高{{ a.waveHeight }}
+        </li>
+      </ul>
+      <a
+        v-if="activeTsunami.web"
+        :href="activeTsunami.web"
+        target="_blank"
+        rel="noopener"
+        class="inline-block text-xs underline underline-offset-2"
+      >
+        中央氣象署地震測報中心完整公告 →
+      </a>
+    </section>
+
     <div class="flex w-fit overflow-hidden rounded-lg border border-surface-2 bg-surface-1">
       <button
         type="button"

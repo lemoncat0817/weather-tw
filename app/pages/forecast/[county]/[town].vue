@@ -2,7 +2,7 @@
 import { computed, ref, useTemplateRef } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
-import { formatTaipeiMonthDay } from '@/utils/formatDate'
+import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
 import type { TownForecast } from '#shared/types'
 
 const route = useRoute()
@@ -34,6 +34,12 @@ const meteogramOption = computed(() =>
   forecast.value
     ? buildMeteogramOption(forecast.value.hourly, { sunrise: forecast.value.sunrise, sunset: forecast.value.sunset })
     : null
+)
+
+// 日出日沒必定存在，缺席只代表 sunTimesFor 失敗；月出月沒則可能是「該日確實無此現象」
+// （每月約一次），三者都用 null 統一表示「沒有可顯示的值」，模板一律用同一個 fallback 文字
+const hasAstronomy = computed(
+  () => !!(forecast.value?.sunrise || forecast.value?.sunset || forecast.value?.moonrise || forecast.value?.moonset)
 )
 
 // 目前這個時間點最接近的一筆逐時資料，當作「現況」摘要卡
@@ -91,6 +97,13 @@ const current = computed(() => {
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
         </div>
+      </section>
+
+      <section v-if="hasAstronomy" class="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg bg-surface-1 px-4 py-3 text-sm text-text-secondary">
+        <span><span class="text-text-muted">日出</span> {{ forecast.sunrise ? formatTaipeiTime(forecast.sunrise) : '—' }}</span>
+        <span><span class="text-text-muted">日沒</span> {{ forecast.sunset ? formatTaipeiTime(forecast.sunset) : '—' }}</span>
+        <span><span class="text-text-muted">月出</span> {{ forecast.moonrise ? formatTaipeiTime(forecast.moonrise) : '（今日無月出）' }}</span>
+        <span><span class="text-text-muted">月沒</span> {{ forecast.moonset ? formatTaipeiTime(forecast.moonset) : '（今日無月沒）' }}</span>
       </section>
 
       <section class="rounded-lg bg-surface-1 p-4">

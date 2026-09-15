@@ -4,12 +4,24 @@ import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
 import { severityClass } from '@/utils/warningSeverity'
-import { temperatureColor } from '@/utils/colorScales'
-import type { TownForecast, TownForecastPeriod, CountyWarning, Typhoon, Earthquake, RadarFrame } from '#shared/types'
+import { temperatureColor, airQualityColor } from '@/utils/colorScales'
+import { AIR_QUALITY_LEVEL_LABEL } from '@/utils/airQuality'
+import { findNearest, haversineKm } from '@/utils/geoDistance'
+import type {
+  TownForecast,
+  TownForecastPeriod,
+  CountyWarning,
+  Typhoon,
+  Earthquake,
+  RadarFrame,
+  AirQualityStation,
+  GeoFeatureCollection,
+  GeoPoint
+} from '#shared/types'
 
 useSeoMeta({
   title: '氣象知多少 — 台灣即時天氣、雷達與颱風資訊',
-  description: '台灣即時天氣預報、雷達回波、颱風路徑與地震資訊的專業氣象資訊平台。'
+  description: '台灣即時天氣預報、雷達回波、空氣品質、颱風路徑與地震資訊的專業氣象資訊平台。'
 })
 
 const DEFAULT_COUNTY = '臺北市'
@@ -30,6 +42,27 @@ const [{ data: forecast }, { data: warnings }, { data: typhoons }, { data: earth
     useFetch<Earthquake[]>('/api/earthquake/recent', { query: { limit: 3 } }),
     useFetch<RadarFrame[]>('/api/radar/frames')
   ])
+
+// 全台空氣品質測站只有約 80 個，鄉鎮卻有 368 個，不是每個鄉鎮旁邊都有站——這份資料只餵給
+// 首頁 Hero 卡片的一個小徽章，不是 SEO 內容，故意不放進上面那批 SSR 的 Promise.all，
+// 跟 /map、/health 的作法一致：server:false，等 hydration 後再抓，不拖累首屏
+const { data: airQualityStations } = useFetch<GeoFeatureCollection<GeoPoint, AirQualityStation>>(
+  '/api/air-quality/stations',
+  { server: false }
+)
+
+// 找離目前選定鄉鎮最近的測站——重心點比對，跟 LocationPicker 用 findNearest 猜「你在哪個鄉鎮」
+// 同一套邏輯。超過 50 公里代表附近根本沒站（外島或山區常見），與其顯示一個誤導的遠地讀數，
+// 不如直接不顯示
+const NEAREST_AIR_QUALITY_MAX_KM = 50
+const nearestAirQuality = computed(() => {
+  const coordinates = forecast.value?.coordinates
+  const stations = airQualityStations.value?.features.map((f) => f.properties)
+  if (!coordinates || !stations || stations.length === 0) return null
+  const nearest = findNearest(coordinates, stations)
+  if (!nearest) return null
+  return haversineKm(coordinates, nearest.coordinates) <= NEAREST_AIR_QUALITY_MAX_KM ? nearest : null
+})
 
 const ACTIVE_WARNINGS_COLLAPSE_AT = 5
 const activeWarnings = computed(() => (warnings.value ?? []).filter((w) => w.hazards.length > 0))
@@ -183,6 +216,18 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
         <span><span class="text-text-muted">風向</span> {{ current.windDirection }}</span>
         <span v-if="forecast?.sunrise"><span class="text-text-muted">日出</span> {{ formatTaipeiTime(forecast.sunrise) }}</span>
         <span v-if="forecast?.sunset"><span class="text-text-muted">日沒</span> {{ formatTaipeiTime(forecast.sunset) }}</span>
+        <NuxtLink
+          v-if="nearestAirQuality"
+          to="/air-quality"
+          class="flex items-center gap-1 hover:text-text-primary"
+          :title="`最近測站：${nearestAirQuality.siteName}`"
+        >
+          <span class="text-text-muted">空氣品質</span>
+          <span class="tabular-nums font-medium" :style="{ color: airQualityColor(nearestAirQuality.level) }">
+            {{ nearestAirQuality.aqi ?? '—' }}
+          </span>
+          <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
+        </NuxtLink>
       </div>
 
       <NuxtLink

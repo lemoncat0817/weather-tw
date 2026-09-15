@@ -228,6 +228,8 @@ export interface Typhoon {
   year: number
   name: string
   nameZh: string
+  /** 系統類別：已命名颱風或尚未命名的熱帶性低氣壓 */
+  classification: 'typhoon' | 'tropical-depression'
   /** 歷史觀測路徑，由舊到新 */
   track: TyphoonFixPoint[]
   /** 未來預報路徑，由近到遠 */

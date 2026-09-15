@@ -43,16 +43,16 @@ interface CwaForecastFix {
 }
 interface CwaTropicalCyclone {
   Year: string | number
-  TyphoonName: string
-  CwaTyphoonName: string
-  CwaTyNo: string | number
-  CwaTdNo: string | number
+  TyphoonName?: string
+  CwaTyphoonName?: string
+  CwaTyNo?: string | number
+  CwaTdNo?: string | number
   AnalysisData?: { Fix: CwaAnalysisFix[] }
   ForecastData?: { Fix: CwaForecastFix[] }
 }
 interface CwaTyphoonResponse {
   records: {
-    TropicalCyclones: { TropicalCyclone: CwaTropicalCyclone[] }
+    TropicalCyclones?: { TropicalCyclone?: CwaTropicalCyclone[] }
   }
 }
 
@@ -130,11 +130,22 @@ function toProbabilityCone(forecast: TyphoonForecastPoint[]): GeoFeature<GeoPoly
 function normalizeOne(tc: CwaTropicalCyclone): Typhoon {
   const track = (tc.AnalysisData?.Fix ?? []).map(toFixPoint)
   const forecast = (tc.ForecastData?.Fix ?? []).map(toForecastPoint)
+
+  const tdNo = tc.CwaTdNo != null ? String(tc.CwaTdNo).trim() : ''
+  const tyNo = tc.CwaTyNo != null ? String(tc.CwaTyNo).trim() : ''
+  const tdFormatted = tdNo ? `TD${tdNo.padStart(2, '0')}` : ''
+  const isTd = !tc.TyphoonName && !tc.CwaTyphoonName && !tyNo
+
+  const id = tyNo ? `${tc.Year}-${tyNo}` : `${tc.Year}-${tdFormatted || 'unknown'}`
+  const name = tc.TyphoonName || tdFormatted || 'TD'
+  const nameZh = tc.CwaTyphoonName || (tdFormatted ? `熱帶性低氣壓 ${tdFormatted}` : '熱帶性低氣壓')
+
   return {
-    id: `${tc.Year}-${tc.CwaTyNo}`,
+    id,
     year: Number(tc.Year),
-    name: tc.TyphoonName,
-    nameZh: tc.CwaTyphoonName,
+    name,
+    nameZh,
+    classification: isTd ? 'tropical-depression' : 'typhoon',
     track,
     forecast,
     trackLine: toLine(track, 'track'),
@@ -144,7 +155,16 @@ function normalizeOne(tc: CwaTropicalCyclone): Typhoon {
 }
 
 export function normalizeTyphoons(raw: CwaTyphoonResponse): Typhoon[] {
-  return (raw.records.TropicalCyclones.TropicalCyclone ?? []).map(normalizeOne)
+  const list = (raw.records?.TropicalCyclones?.TropicalCyclone ?? []).map(normalizeOne)
+  // 優先權：颱風（typhoon）優先於熱帶性低氣壓（tropical-depression），同類別依最新觀測風速降冪排序
+  return list.sort((a, b) => {
+    if (a.classification !== b.classification) {
+      return a.classification === 'typhoon' ? -1 : 1
+    }
+    const windA = a.track.at(-1)?.maxWindSpeed ?? 0
+    const windB = b.track.at(-1)?.maxWindSpeed ?? 0
+    return windB - windA
+  })
 }
 
 // ---------------------------------------------------------------------------

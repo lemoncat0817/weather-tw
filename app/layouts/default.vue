@@ -6,6 +6,8 @@ const navItems = [
   { to: '/earthquake', label: '地震' },
   { to: '/observation', label: '觀測' },
   { to: '/air-quality', label: '空氣品質' },
+  { to: '/reservoir', label: '水庫' },
+  { to: '/river', label: '河川' },
   { to: '/climate', label: '趨勢' },
   { to: '/warnings', label: '特報' },
   { to: '/health', label: '健康' },
@@ -96,6 +98,7 @@ const mobileNavOpen = ref(false)
     <footer class="border-t border-border px-4 py-4 text-center text-xs text-text-muted">
       資料來源：<a href="https://opendata.cwa.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">中央氣象署開放資料平台</a>
       ・<a href="https://data.moenv.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">環境部環境資料開放平臺</a>
+      ・<a href="https://opendata.wra.gov.tw" target="_blank" rel="noopener" class="hover:text-text-secondary">經濟部水利署水利資料開放平台</a>
     </footer>
   </div>
 </template>

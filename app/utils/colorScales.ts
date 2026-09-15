@@ -133,3 +133,27 @@ export function airQualityColor(level: string): string {
   if (i === -1) return AIR_QUALITY_UNAVAILABLE_COLOR
   return interpolateHexRamp(SEVERITY_RAMP, i / (AIR_QUALITY_LEVELS.length - 1))
 }
+
+// 水庫蓄水率也是同一套「單調遞增的嚴重程度」色階，但方向跟風速/震度/AQI相反——
+// 這幾個都是數值越高越嚴重，蓄水率是數值越低（越接近見底）越嚴重，所以插值時要反過來
+const RESERVOIR_UNAVAILABLE_COLOR = '#334155'
+
+/** 水庫蓄水率（0~100）→ 顏色，越低越接近 SEVERITY_RAMP 的警示端 */
+export function reservoirStorageColor(percentage: number | null): string {
+  if (percentage === null) return RESERVOIR_UNAVAILABLE_COLOR
+  const t = Math.max(0, Math.min(1, percentage / 100))
+  return interpolateHexRamp(SEVERITY_RAMP, 1 - t)
+}
+
+// 河川水位三級警戒（由低到高：level3 最先觸發、level1 最嚴重）直接對應 SEVERITY_RAMP
+// 的後三個錨點，'normal'（正常）對應最前面的 good，不需要插值
+const RIVER_ALERT_LEVELS = ['normal', 'level3', 'level2', 'level1'] as const
+// 'unavailable' 涵蓋兩種情況：這站根本沒公告警戒門檻，或讀值本身被標記為異常——
+// 跟其餘「無警示」同一支中性灰
+const RIVER_ALERT_UNAVAILABLE_COLOR = '#334155'
+
+/** 河川水位警戒等級（RiverAlertLevel）→ 顏色 */
+export function riverAlertColor(level: string): string {
+  const i = RIVER_ALERT_LEVELS.indexOf(level as (typeof RIVER_ALERT_LEVELS)[number])
+  return SEVERITY_RAMP[i] ?? RIVER_ALERT_UNAVAILABLE_COLOR
+}

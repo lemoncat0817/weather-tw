@@ -590,11 +590,7 @@ export type AirQualityLevel =
   | 'hazardous'
   | 'unavailable'
 
-/**
- * 單一測站的即時空氣品質（AQX_P_432 跟測站座標 AQX_P_07 join 後的結果）。AQX_P_432 本身
- * 沒有座標欄位，只能用測站名稱對照——找不到對應座標的測站會在 normalizer 階段被濾掉，
- * 不會出現在這裡。
- */
+/** 單一測站的即時空氣品質（AQX_P_432），本身就帶座標，不需要跟其他資料集 join。 */
 export interface AirQualityStation {
   siteName: string
   county: string
@@ -610,4 +606,65 @@ export interface AirQualityStation {
   co: number | null
   no2: number | null
   publishTime: string
+}
+
+// ---------------------------------------------------------------------------
+// 水庫水情（經濟部水利署水利資料開放平台，非 CWA；水庫水情 + 水庫每日營運狀況，全程免金鑰）
+// ---------------------------------------------------------------------------
+
+/**
+ * 單一水庫最新一筆水情（水庫水情即時資料，跟水庫每日營運狀況的容量規格 join 後的結果）。
+ * 只收錄能找到容量規格與座標對照（見 server/utils/reservoirCoords.ts）的水庫；水情資料集裡
+ * 另外還有約 30 個沒有規格資料的小型埤塘，一律濾掉。
+ */
+export interface ReservoirStatus {
+  id: string
+  name: string
+  coordinates: Coordinates
+  observationTime: string
+  /** 水位（公尺） */
+  waterLevel: number | null
+  /**
+   * 蓄水率（%）＝即時有效蓄水量 ÷ 水庫每日營運狀況的有效庫容量。兩者其中一個缺值時為
+   * null，不強行湊出一個看似合理但其實沒意義的數字。已對照經濟部水利署防災資訊網
+   * （fhy.wra.gov.tw/fhyv2/monitor/reservoir）目前顯示值逐一核對過分母來源，見
+   * server/utils/normalize/reservoir.ts 的完整說明——水利署另外還公告一份「水庫基本資料」，
+   * 裡面同樣有一個「目前有效容量」欄位，聽起來像同一件事，實際上是不同的數字，
+   * 千萬別搞混。
+   */
+  storagePercentage: number | null
+  /** 進流量、出流量（CMS，立方公尺/秒）——依業界慣例標示單位，官方文件沒有逐欄位附單位說明 */
+  inflow: number | null
+  outflow: number | null
+}
+
+// ---------------------------------------------------------------------------
+// 河川即時水位（經濟部水利署水利資料開放平台，非 CWA；即時水位 + 河川水位測站站況）
+// ---------------------------------------------------------------------------
+
+/**
+ * 三級警戒門檻由低到高：level3 最先觸發（水位剛開始偏高），level1 最嚴重。跟 CWA
+ * 其餘四級警示（'none'|'caution'|'watch'|...）不同名，是因為官方本來就用「一二三級」
+ * 稱呼，硬套 CWA 那套用詞反而失真。'unavailable' 對應沒有門檻資料或讀值本身不可信
+ * （測站回報「近期水位變化超過 3.5m」「高於堤頂高」這類 QC 異常時，一律當作沒有讀值）。
+ */
+export type RiverAlertLevel = 'normal' | 'level3' | 'level2' | 'level1' | 'unavailable'
+
+/**
+ * 單一測站的即時水位（即時水位資料跟河川水位測站站況 join 後的結果）。只收錄站況資料
+ * 有座標、且能跟即時資料對上站號的測站——即時水位的 stationid（8 碼）是站況
+ * observatoryidentifier（帶流域前綴的長碼）的後 8 碼，兩邊格式不一致，見
+ * server/utils/normalize/river.ts 的 join 邏輯。
+ */
+export interface RiverStation {
+  id: string
+  name: string
+  river: string
+  coordinates: Coordinates
+  observationTime: string
+  waterLevel: number | null
+  alertLevel: RiverAlertLevel
+  /** 三級警戒門檻原始值（公尺），供 UI 顯示「目前水位 vs. 門檻」——不是每站都有齊三個，
+   *  常見只公告一到兩級 */
+  alertThresholds: { level1: number | null; level2: number | null; level3: number | null }
 }

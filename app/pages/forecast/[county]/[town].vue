@@ -3,7 +3,9 @@ import { computed, ref, useTemplateRef } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import { buildMeteogramOption } from '@/utils/meteogram'
 import { formatTaipeiMonthDay, formatTaipeiTime } from '@/utils/formatDate'
-import type { TownForecast } from '#shared/types'
+import { airQualityColor } from '@/utils/colorScales'
+import { AIR_QUALITY_LEVEL_LABEL, nearestAirQualityStation } from '@/utils/airQuality'
+import type { TownForecast, AirQualityStation, GeoFeatureCollection, GeoPoint } from '#shared/types'
 
 const route = useRoute()
 const county = computed(() => String(route.params.county))
@@ -25,9 +27,22 @@ const { data: forecast, status, error } = await useFetch<TownForecast>(
   { key: () => `forecast-${county.value}-${town.value}` }
 )
 
+// 跟首頁同一套做法：server:false，這份資料只餵一個小徽章，不是 SEO 內容，不值得拖累 SSR payload
+const { data: airQualityStations } = useFetch<GeoFeatureCollection<GeoPoint, AirQualityStation>>(
+  '/api/air-quality/stations',
+  { server: false }
+)
+
+const nearestAirQuality = computed(() => {
+  const coordinates = forecast.value?.coordinates
+  const stations = airQualityStations.value?.features.map((f) => f.properties)
+  if (!coordinates || !stations || stations.length === 0) return null
+  return nearestAirQualityStation(coordinates, stations)
+})
+
 useSeoMeta({
   title: () => `${town.value}天氣預報 — 氣象知多少`,
-  description: () => `${county.value}${town.value}未來 7 天天氣預報，含逐時溫度、降雨機率、風速與濕度。`
+  description: () => `${county.value}${town.value}未來 7 天天氣預報，含逐時溫度、降雨機率、風速、濕度與空氣品質。`
 })
 
 const meteogramOption = computed(() =>
@@ -91,11 +106,23 @@ const current = computed(() => {
           <p class="tabular-nums text-3xl font-semibold text-text-primary">{{ current.temperature }}°</p>
           <p class="text-sm text-text-secondary">體感 {{ current.apparentTemperature }}° · {{ current.weather }}</p>
         </div>
-        <div class="ml-auto grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-text-secondary sm:grid-cols-4">
+        <div class="ml-auto flex flex-wrap gap-x-6 gap-y-1 text-sm text-text-secondary">
           <div><span class="text-text-muted">降雨機率</span> <span class="tabular-nums">{{ current.pop ?? '—' }}%</span></div>
           <div><span class="text-text-muted">濕度</span> <span class="tabular-nums">{{ current.relativeHumidity }}%</span></div>
           <div><span class="text-text-muted">風速</span> <span class="tabular-nums">{{ current.windSpeed }} m/s</span></div>
           <div><span class="text-text-muted">風向</span> {{ current.windDirection }}</div>
+          <NuxtLink
+            v-if="nearestAirQuality"
+            :to="{ path: '/air-quality', query: { site: nearestAirQuality.siteName } }"
+            class="flex items-center gap-1 hover:text-text-primary"
+            :title="`最近測站：${nearestAirQuality.siteName}`"
+          >
+            <span class="text-text-muted">空氣品質</span>
+            <span class="tabular-nums font-medium" :style="{ color: airQualityColor(nearestAirQuality.level) }">
+              {{ nearestAirQuality.aqi ?? '—' }}
+            </span>
+            <span>{{ AIR_QUALITY_LEVEL_LABEL[nearestAirQuality.level] ?? nearestAirQuality.level }}</span>
+          </NuxtLink>
         </div>
       </section>
 

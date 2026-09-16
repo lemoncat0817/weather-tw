@@ -750,3 +750,38 @@ export interface WorkSchoolStatusResponse {
   counties: WorkSchoolCountyStatus[]
   announcement?: string
 }
+
+// ---------------------------------------------------------------------------
+// 路面淹水感測器（經濟部水利署 WRA，全臺 1,366 處路面淹水感測器）
+// ---------------------------------------------------------------------------
+
+export type InundationSeverity = 'none' | 'warning' | 'critical'
+
+export interface InundationSensor {
+  sensorId: string
+  county: string
+  /** 水利署 API 內部的行政區域子代碼，非村里代碼或地址，無法反查確切地點 */
+  areaCode: string
+  countyCode: string
+  /** 最新淹水深度（公分，>= 0） */
+  depthCm: number
+  /** 告警等級：0cm 為 none；1~19cm 為 warning；>= 20cm 為 critical */
+  severity: InundationSeverity
+  observationTime: string
+}
+
+export interface InundationSummary {
+  updatedAt: string
+  /** 全台在線感測器總數 */
+  totalSensors: number
+  /** 發生積淹水（深度 > 0 cm）的感測器數量 */
+  activeInundationCount: number
+  /** 當前偵測到積淹水的感測器清單 */
+  activeSensors: InundationSensor[]
+  /** 依縣市彙整統計 */
+  byCounty: {
+    county: string
+    total: number
+    flooding: number
+  }[]
+}

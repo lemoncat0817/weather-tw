@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, useTemplateRef } from 'vue'
 import type { LightningFramesResponse } from '#shared/types'
+import { createLightningBitmapCache } from '@/utils/lightningBitmap'
 
 const { data: lightningData } = await useFetch<LightningFramesResponse>('/api/lightning/frames')
 
@@ -10,6 +11,48 @@ const isPlaying = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const currentFrame = computed(() => frames.value[currentIndex.value] ?? null)
+
+const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef')
+const hasCanvasDrawn = ref(false)
+const bitmapCache = createLightningBitmapCache()
+
+// 記錄當前正在繪製的影格識別碼，避免快速拖曳時非同步回調亂序覆蓋
+let renderingUrl: string | null = null
+
+async function renderFrame(frame = currentFrame.value) {
+  if (!frame || !canvasRef.value) return
+  const targetUrl = frame.url
+  renderingUrl = targetUrl
+
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  // 1. 同步快取命中：0ms 零延遲繪製
+  const immediate = bitmapCache.getImmediate(frame)
+  if (immediate) {
+    if (renderingUrl === targetUrl) {
+      ctx.drawImage(immediate, 0, 0, canvas.width, canvas.height)
+      hasCanvasDrawn.value = true
+    }
+    return
+  }
+
+  // 2. 非同步解碼：在解碼完成前，Canvas 保持上一幀畫面，絕不清空、絕不閃黑
+  const decoded = await bitmapCache.get(frame)
+  if (decoded && renderingUrl === targetUrl) {
+    ctx.drawImage(decoded, 0, 0, canvas.width, canvas.height)
+    hasCanvasDrawn.value = true
+  }
+}
+
+watch(currentIndex, (newIdx) => {
+  const frame = frames.value[newIdx]
+  if (!frame) return
+  void renderFrame(frame)
+  // 拖曳或播放時維持前方與後方的預載滑動視窗
+  bitmapCache.prefetchWindow(frames.value, newIdx, isPlaying.value ? 10 : 5, 3)
+})
 
 function nextFrame() {
   if (frames.value.length === 0) return
@@ -32,6 +75,8 @@ function togglePlay() {
 function startPlayback() {
   if (frames.value.length <= 1) return
   isPlaying.value = true
+  // 啟動播放時立即預載後續 10 幀，確保第一輪播放極致順暢
+  bitmapCache.prefetchWindow(frames.value, currentIndex.value, 10, 2)
   timer = setInterval(() => {
     nextFrame()
   }, 700)
@@ -48,11 +93,14 @@ function stopPlayback() {
 onMounted(() => {
   if (frames.value.length > 0) {
     currentIndex.value = frames.value.length - 1
+    void renderFrame()
+    bitmapCache.prefetchWindow(frames.value, currentIndex.value, 8, 3)
   }
 })
 
 onUnmounted(() => {
   stopPlayback()
+  bitmapCache.dispose()
 })
 </script>
 
@@ -61,30 +109,34 @@ onUnmounted(() => {
     無法載入閃電觀測影像，請稍後再試。
   </div>
 
-  <div v-else class="rounded-lg bg-surface-1 p-4 space-y-3">
+  <div v-else class="space-y-3 rounded-lg bg-surface-1 p-4">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-sm font-medium text-text-secondary">
         即時閃電觀測
       </h2>
 
-      <span v-if="currentFrame" class="text-xs tabular-nums font-medium text-text-muted">
+      <span v-if="currentFrame" class="text-xs font-medium tabular-nums text-text-muted">
         {{ currentFrame.displayTime }}
       </span>
     </div>
 
-    <!-- 影像容器 -->
-    <div class="relative aspect-square max-h-[480px] w-full overflow-hidden rounded-lg bg-black/40 flex items-center justify-center border border-border-subtle">
+    <!-- 影像容器：使用單一 Canvas 雙緩衝繪製，避免換圖抽換 DOM 產生黑底閃爍 -->
+    <div class="relative flex aspect-square max-h-[480px] w-full items-center justify-center overflow-hidden rounded-lg border border-border-subtle bg-black/40">
+      <!-- 初始 SSR 圖片（在客戶端 Canvas 首次畫出前顯示，避免 hydration 空白；一旦 Canvas 就緒即隱藏） -->
       <img
-        v-if="currentFrame"
-        :key="currentFrame.url"
+        v-if="!hasCanvasDrawn && currentFrame"
         :src="currentFrame.url"
         :alt="`閃電觀測 ${currentFrame.displayTime}`"
         class="h-full w-full object-contain"
         loading="eager"
       >
-      <div v-else class="text-xs text-text-muted">
-        無閃電影像資料
-      </div>
+      <canvas
+        ref="canvasRef"
+        width="1000"
+        height="1000"
+        class="h-full w-full object-contain"
+        :class="{ 'opacity-0 pointer-events-none absolute': !hasCanvasDrawn, 'opacity-100': hasCanvasDrawn }"
+      />
     </div>
 
     <!-- 時間軸與播放控制列 -->
@@ -92,7 +144,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-3">
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-text-primary hover:bg-surface-3 transition-colors text-sm"
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-sm text-text-primary transition-colors hover:bg-surface-3"
           :title="isPlaying ? '暫停' : '播放'"
           @click="togglePlay"
         >
@@ -102,7 +154,7 @@ onUnmounted(() => {
 
         <button
           type="button"
-          class="flex h-7 w-7 items-center justify-center rounded bg-surface-2 text-text-secondary hover:text-text-primary transition-colors text-xs"
+          class="flex h-7 w-7 items-center justify-center rounded bg-surface-2 text-xs text-text-secondary transition-colors hover:text-text-primary"
           title="上一幀"
           @click="prevFrame"
         >
@@ -120,14 +172,14 @@ onUnmounted(() => {
 
         <button
           type="button"
-          class="flex h-7 w-7 items-center justify-center rounded bg-surface-2 text-text-secondary hover:text-text-primary transition-colors text-xs"
+          class="flex h-7 w-7 items-center justify-center rounded bg-surface-2 text-xs text-text-secondary transition-colors hover:text-text-primary"
           title="下一幀"
           @click="nextFrame"
         >
           ⏭
         </button>
 
-        <span class="text-xs tabular-nums text-text-muted min-w-[3rem] text-right">
+        <span class="min-w-[3rem] text-right text-xs tabular-nums text-text-muted">
           {{ currentIndex + 1 }} / {{ frames.length }}
         </span>
       </div>

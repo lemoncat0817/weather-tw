@@ -15,7 +15,8 @@ import type {
   RadarFrame,
   AirQualityStation,
   GeoFeatureCollection,
-  GeoPoint
+  GeoPoint,
+  WorkSchoolStatusResponse
 } from '#shared/types'
 
 useSeoMeta({
@@ -47,7 +48,8 @@ const [
   { data: warnings },
   { data: typhoons },
   { data: earthquakes },
-  { data: radar }
+  { data: radar },
+  { data: workSchoolStatus }
 ] = await Promise.all([
   useFetch<TownForecast>(
     () => `/api/forecast/${encodeURIComponent(selectedLocation.value.county)}/${encodeURIComponent(selectedLocation.value.town)}`,
@@ -56,7 +58,8 @@ const [
   useFetch<CountyWarning[]>('/api/warnings'),
   useFetch<Typhoon[]>('/api/typhoon/active'),
   useFetch<Earthquake[]>('/api/earthquake/recent', { query: { limit: 3 } }),
-  useFetch<RadarFrame[]>('/api/radar/frames')
+  useFetch<RadarFrame[]>('/api/radar/frames'),
+  useFetch<WorkSchoolStatusResponse>('/api/work-school-status')
 ])
 
 // 全台空氣品質測站只有約 80 個，鄉鎮卻有 368 個，不是每個鄉鎮旁邊都有站——這份資料只餵給
@@ -94,6 +97,15 @@ const activeWarnings = computed(() => (warnings.value ?? []).filter((w) => w.haz
 const visibleWarnings = computed(() => activeWarnings.value.slice(0, ACTIVE_WARNINGS_COLLAPSE_AT))
 const hiddenWarningsCount = computed(() => Math.max(0, activeWarnings.value.length - ACTIVE_WARNINGS_COLLAPSE_AT))
 const latestRadar = computed(() => radar.value?.at(-1) ?? null)
+
+// 比照颱風／地震快訊卡片：平時完全不佔版面，真的停班停課才出現並連到 /warnings。大雷雨
+// 即時訊息不做同樣處理——內容常跟上面特報條重複（同一場雨兩處都連到 /warnings），故拿掉
+const suspendedCounties = computed(() =>
+  workSchoolStatus.value?.isDefaultStatus
+    ? []
+    : (workSchoolStatus.value?.counties ?? []).filter((c) => c.status === 'suspended' || c.status === 'partial')
+)
+const hasFullSuspension = computed(() => suspendedCounties.value.some((c) => c.status === 'suspended'))
 
 const pickerOpen = ref(false)
 const pickerRoot = useTemplateRef<HTMLElement>('pickerRoot')
@@ -190,8 +202,22 @@ function dayRangeBarStyle(period: TownForecastPeriod) {
       </NuxtLink>
     </div>
 
-    <!-- 颱風 / 地震快訊：只有真的有事件才顯示 -->
-    <div v-if="(typhoons?.length ?? 0) > 0 || (earthquakes?.length ?? 0) > 0" class="grid gap-3 sm:grid-cols-2">
+    <!-- 停班停課 / 颱風 / 地震快訊：只有真的有事件才顯示 -->
+    <div
+      v-if="suspendedCounties.length > 0 || (typhoons?.length ?? 0) > 0 || (earthquakes?.length ?? 0) > 0"
+      class="grid gap-3 sm:grid-cols-2"
+    >
+      <NuxtLink
+        v-if="suspendedCounties.length > 0"
+        to="/warnings"
+        class="rounded-lg p-4"
+        :class="hasFullSuspension ? 'bg-severity-warning/10 hover:bg-severity-warning/15' : 'bg-severity-watch/10 hover:bg-severity-watch/15'"
+      >
+        <p class="text-sm font-medium" :class="hasFullSuspension ? 'text-severity-warning' : 'text-severity-watch'">
+          停班停課
+        </p>
+        <p class="mt-1 text-text-primary">{{ suspendedCounties.map((c) => c.county).join('、') }}</p>
+      </NuxtLink>
       <NuxtLink
         v-if="(typhoons?.length ?? 0) > 0"
         to="/typhoon"

@@ -726,3 +726,27 @@ export interface LightningFramesResponse {
   updatedAt: string
   frames: LightningFrame[]
 }
+
+// ---------------------------------------------------------------------------
+// 天然災害停止上班及上課情形（行政院人事行政總處 DGPA）
+// ---------------------------------------------------------------------------
+
+export type WorkSchoolStatusType = 'normal' | 'suspended' | 'partial' | 'pending'
+
+export interface WorkSchoolCountyStatus {
+  county: string
+  status: WorkSchoolStatusType
+  /** 原始狀態文字，如「照常上班、照常上課」或「停止上班、停止上課」 */
+  statusText: string
+  /** 詳細範圍或說明（如包含特定鄉鎮或學校） */
+  details?: string
+}
+
+export interface WorkSchoolStatusResponse {
+  updatedAt: string
+  /** 是否全台無重大停班課訊息（平時狀態） */
+  isDefaultStatus: boolean
+  title: string
+  counties: WorkSchoolCountyStatus[]
+  announcement?: string
+}

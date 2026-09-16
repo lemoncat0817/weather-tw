@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { CountyWarning, WarningDetail } from '#shared/types'
 import { severityClass, capSeverityClass, CAP_SEVERITY_LABEL } from '@/utils/warningSeverity'
 import { formatTaipei } from '@/utils/formatDate'
+import WorkSchoolStatusCard from '@/components/warnings/WorkSchoolStatusCard.vue'
 
 useSeoMeta({ title: '警特報 — 氣象知多少', description: '全台 22 縣市目前作用中的天氣警特報彙整，含官方特報全文與嚴重度。' })
 
@@ -22,6 +23,9 @@ const clear = computed(() => (warnings.value ?? []).filter((w) => w.hazards.leng
 
 <template>
   <div class="space-y-4">
+    <!-- 行政院人事行政總處停班停課 -->
+    <WorkSchoolStatusCard />
+
     <div v-if="!warnings" class="rounded-lg bg-surface-1 p-8 text-center text-text-secondary">
       無法載入警特報資料，請稍後再試。
     </div>

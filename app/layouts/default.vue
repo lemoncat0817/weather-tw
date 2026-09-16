@@ -14,6 +14,7 @@ const coreNavItems = [
 ]
 
 const moreNavItems = [
+  { to: '/lightning', label: '閃電' },
   { to: '/air-quality', label: '空氣品質' },
   { to: '/reservoir', label: '水庫' },
   { to: '/river', label: '河川' },

@@ -708,3 +708,21 @@ export interface DebrisFlowSummary {
   active: DebrisFlowAlert[]
   recent: DebrisFlowAlert[]
 }
+
+// ---------------------------------------------------------------------------
+// 即時閃電觀測（中央氣象署 CWA，每 5 分鐘滾動影像清單）
+// ---------------------------------------------------------------------------
+
+export interface LightningFrame {
+  /** 觀測時間（ISO 8601，台北時間 +08:00） */
+  time: string
+  /** 顯示用字串（YYYY/MM/DD HH:mm） */
+  displayTime: string
+  /** 代理圖檔 URL，供前端或時間軸播放載入 */
+  url: string
+}
+
+export interface LightningFramesResponse {
+  updatedAt: string
+  frames: LightningFrame[]
+}

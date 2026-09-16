@@ -67,6 +67,49 @@ describe('normalizeClimateComparison', () => {
     const normal = { records: {} }
     expect(normalizeClimateComparison(recent as never, normal as never)).toBeNull()
   })
+
+  it('完整 C-B0024 與 C-B0027 資料時，正確轉換測站、月常態、逐時觀測與昨日摘要', () => {
+    const recent = {
+      records: {
+        location: [
+          {
+            station: { StationID: '466920', StationName: '臺北' },
+            stationObsTimes: {
+              stationObsTime: [
+                {
+                  DateTime: '2026-08-28T11:00:00+08:00',
+                  weatherElements: { AirTemperature: '32.5', RelativeHumidity: '65', Precipitation: '0.0' }
+                },
+                {
+                  DateTime: '2026-08-28T12:00:00+08:00',
+                  weatherElements: { AirTemperature: '33.1', RelativeHumidity: '60', Precipitation: 'T' }
+                }
+              ]
+            },
+            stationObsStatistics: {
+              AirTemperature: {
+                daily: [{ Date: '2026-08-27', Mean: 30.2, Maximum: 35.1, Minimum: 26.4 }]
+              }
+            }
+          }
+        ]
+      }
+    }
+
+    const comparison = normalizeClimateComparison(recent as never, NORMAL_WITH_PRECIPITATION as never)
+    expect(comparison).not.toBeNull()
+    expect(comparison).toMatchObject({
+      stationId: '466920',
+      stationName: '臺北',
+      normalYears: [1991, 2020],
+      monthlyNormals: [{ month: 1, meanTemperature: 16.4, maxTemperature: 19.5, minTemperature: 13.9 }],
+      recentHourly: [
+        { time: '2026-08-28T11:00:00+08:00', temperature: 32.5, relativeHumidity: 65, precipitation: 0 },
+        { time: '2026-08-28T12:00:00+08:00', temperature: 33.1, relativeHumidity: 60, precipitation: null }
+      ],
+      yesterday: { date: '2026-08-27', meanTemperature: 30.2, maxTemperature: 35.1, minTemperature: 26.4 }
+    })
+  })
 })
 
 describe('normalizeClimateExtras', () => {

@@ -81,7 +81,18 @@ const RAW_TYPHOON = {
                 MaxGustSpeed: '65',
                 Pressure: '935',
                 MovingSpeed: '15',
-                MovingDirection: 'NW'
+                MovingDirection: 'NW',
+                Circle15ms: {
+                  Radius: '250',
+                  QuadrantRadii: {
+                    Radius: [
+                      { dir: 'NE', value: '260' },
+                      { dir: 'SE', value: '250' },
+                      { dir: 'SW', value: '220' },
+                      { dir: 'NW', value: '240' }
+                    ]
+                  }
+                }
               }
             ]
           },
@@ -159,6 +170,13 @@ describe('normalizeTyphoons', () => {
       classification: 'typhoon'
     })
     expect(typhoon!.track).toHaveLength(1)
+    expect(typhoon!.track[0]!.radius15ms).toBe(250)
+    expect(typhoon!.track[0]!.quadrantRadii15ms).toEqual({
+      ne: 260,
+      se: 250,
+      sw: 220,
+      nw: 240
+    })
     expect(typhoon!.forecast).toHaveLength(1)
     expect(typhoon!.trackLine.geometry.type).toBe('LineString')
     expect(typhoon!.forecastLine.geometry.type).toBe('LineString')
@@ -201,5 +219,36 @@ describe('normalizeTyphoons', () => {
     expect(result[0]!.name).toBe('GAEMI')
     expect(result[1]!.classification).toBe('tropical-depression')
     expect(result[1]!.name).toBe('TD28')
+  })
+
+  it('同為颱風分類時，依最新觀測風速降冪排序', () => {
+    const rawTyphoonWeaker = {
+      Year: '2024',
+      CwaTyNo: '04',
+      TyphoonName: 'PRAPIROON',
+      CwaTyphoonName: '巴比侖',
+      AnalysisData: {
+        Fix: [{ DateTime: '2024-07-24T08:00:00+08:00', MaxWindSpeed: '30' }]
+      }
+    }
+    const rawTyphoonStronger = {
+      Year: '2024',
+      CwaTyNo: '03',
+      TyphoonName: 'GAEMI',
+      CwaTyphoonName: '凱米',
+      AnalysisData: {
+        Fix: [{ DateTime: '2024-07-24T08:00:00+08:00', MaxWindSpeed: '53' }]
+      }
+    }
+    const raw = {
+      records: {
+        TropicalCyclones: {
+          TropicalCyclone: [rawTyphoonWeaker, rawTyphoonStronger]
+        }
+      }
+    }
+    const result = normalizeTyphoons(raw as never)
+    expect(result[0]!.name).toBe('GAEMI')
+    expect(result[1]!.name).toBe('PRAPIROON')
   })
 })

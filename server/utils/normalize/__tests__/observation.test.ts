@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRainStation, normalizeWeatherStation } from '../observation'
+import {
+  normalizeRainStation,
+  normalizeRainStations,
+  normalizeWeatherStation,
+  normalizeWeatherStations
+} from '../observation'
 
 // 節錄自 O-A0003-001 實際回應（基隆站），保留完整的 GustInfo / DailyExtreme 巢狀結構
 const WEATHER_STATION_RAW = {
@@ -138,5 +143,19 @@ describe('normalizeRainStation', () => {
     expect(s.reading.peakGust).toBeNull()
     expect(s.reading.dailyExtreme).toBeNull()
     expect(s.reading.weatherDescription).toBeNull()
+  })
+})
+
+describe('normalizeWeatherStations / normalizeRainStations', () => {
+  it('批次將氣象測站陣列轉換為 Observation 清單', () => {
+    const list = normalizeWeatherStations({ records: { Station: [WEATHER_STATION_RAW] } } as never)
+    expect(list).toHaveLength(1)
+    expect(list[0]?.stationId).toBe('466940')
+  })
+
+  it('批次將雨量測站陣列轉換為 Observation 清單', () => {
+    const list = normalizeRainStations({ records: { Station: [RAIN_STATION_RAW] } } as never)
+    expect(list).toHaveLength(1)
+    expect(list[0]?.stationId).toBe('C1I230')
   })
 })

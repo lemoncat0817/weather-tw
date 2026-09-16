@@ -133,4 +133,10 @@ describe('normalizeEarthquakes — 測站級資料（stations）', () => {
     const chishang = eq!.stations.find((s) => s.stationId === 'ECS')
     expect(chishang).toMatchObject({ pga: null, pgv: null, seismicIntensity: '1級' })
   })
+
+  it('小區域地震（EarthquakeNo 後三碼為 000）附加月日時分秒產生唯一 id，避免撞鍵覆蓋', () => {
+    const [eq] = normalizeEarthquakes(RAW_WITH_STATIONS as never)
+    expect(eq!.id).toBe('115000-0828-102056')
+  })
 })
+

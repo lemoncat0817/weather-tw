@@ -89,6 +89,21 @@ function toStation(s: CwaEqStation): EarthquakeStation {
   }
 }
 
+function formatEarthquakeId(no: number, originTime: string): string {
+  // 小區域地震（E-A0016-001）的 EarthquakeNo 恆為 115000（年份＋000）無獨立編號，
+  // 若只取字串化會導致全台小區域地震 id 全部相同，在 Map 去重或 Vue 列表中互相覆蓋只剩一筆。
+  // 比照 CWA 官方看板做法（如 EQ115000-0916-000039），以發震月日時分秒為後綴產生唯一識別碼。
+  if (no % 1000 === 0) {
+    const m = originTime.match(/^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/)
+    if (m) {
+      const [, mm, dd, hh, min, ss] = m
+      return `${no}-${mm}${dd}-${hh}${min}${ss}`
+    }
+    return `${no}-${originTime}`
+  }
+  return String(no)
+}
+
 function normalizeOne(eq: CwaEarthquakeRecord): Earthquake {
   // 彙總列（AreaDesc 開頭是「最大震度」）的 EqStation 恆為空陣列，但這裡還是先濾掉彙總列
   // 再攤平測站，不依賴「恆為空」這個目前觀察到、但 CWA 沒書面保證的行為
@@ -101,7 +116,7 @@ function normalizeOne(eq: CwaEarthquakeRecord): Earthquake {
   const stations: EarthquakeStation[] = detailAreas.flatMap((a) => (a.EqStation ?? []).map(toStation))
 
   return {
-    id: String(eq.EarthquakeNo),
+    id: formatEarthquakeId(eq.EarthquakeNo, eq.EarthquakeInfo.OriginTime),
     originTime: eq.EarthquakeInfo.OriginTime,
     reportContent: eq.ReportContent,
     reportColor: eq.ReportColor,

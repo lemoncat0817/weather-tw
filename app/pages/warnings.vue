@@ -3,10 +3,11 @@ import { computed } from 'vue'
 import type { CountyWarning, WarningDetail } from '#shared/types'
 import { severityClass, capSeverityClass, CAP_SEVERITY_LABEL } from '@/utils/warningSeverity'
 import { formatTaipei } from '@/utils/formatDate'
+import InstantAlertBanner from '@/components/warnings/InstantAlertBanner.vue'
 import WorkSchoolStatusCard from '@/components/warnings/WorkSchoolStatusCard.vue'
 import InundationCard from '@/components/inundation/InundationCard.vue'
 
-useSeoMeta({ title: '警特報 — 氣象知多少', description: '全台 22 縣市目前作用中的天氣警特報彙整，含官方特報全文與嚴重度。' })
+useSeoMeta({ title: '警特報 — 氣象知多少', description: '全台 22 縣市目前作用中的天氣警特報彙整，含停班停課、淹水感測與大雷雨即時訊息。' })
 
 const [{ data: warnings }, { data: detail }] = await Promise.all([
   useFetch<CountyWarning[]>('/api/warnings'),
@@ -24,6 +25,9 @@ const clear = computed(() => (warnings.value ?? []).filter((w) => w.hazards.leng
 
 <template>
   <div class="space-y-4">
+    <!-- 大雷雨與即時天氣提醒 -->
+    <InstantAlertBanner />
+
     <!-- 行政院人事行政總處停班停課 -->
     <WorkSchoolStatusCard />
 

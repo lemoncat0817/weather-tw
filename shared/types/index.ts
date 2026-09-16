@@ -785,3 +785,28 @@ export interface InundationSummary {
     flooding: number
   }[]
 }
+
+// ---------------------------------------------------------------------------
+// 大雷雨即時訊息與即時天氣訊息（中央氣象署 CWA）
+// ---------------------------------------------------------------------------
+
+export type InstantAlertType = 'thunderstorm' | 'instant_weather' | 'wind' | 'surf' | 'other'
+
+export type InstantAlertSeverity = 'minor' | 'watch' | 'warning' | 'extreme'
+
+export interface InstantAlertItem {
+  id: string
+  type: InstantAlertType
+  title: string
+  headline?: string
+  issuedTime: string
+  validUntil?: string
+  content: string
+  affectedAreas: string[]
+  severity: InstantAlertSeverity
+}
+
+export interface InstantAlertsResponse {
+  updatedAt: string
+  alerts: InstantAlertItem[]
+}

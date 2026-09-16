@@ -26,6 +26,23 @@ export function capSeverityClass(severity: string): string {
   }
 }
 
+/**
+ * 大雷雨／即時天氣提醒（server/utils/normalize/thunderstorm.ts 的 determineInstantSeverity）
+ * 已經算好 severity，直接對應同一組 --color-severity-* 分級，不用再靠 type 猜顏色。
+ */
+export function instantAlertSeverityClass(severity: string): string {
+  switch (severity) {
+    case 'extreme':
+      return 'bg-severity-emergency/15 text-severity-emergency'
+    case 'warning':
+      return 'bg-severity-warning/15 text-severity-warning'
+    case 'watch':
+      return 'bg-severity-watch/15 text-severity-watch'
+    default:
+      return 'bg-severity-advisory/15 text-severity-advisory'
+  }
+}
+
 export const CAP_SEVERITY_LABEL: Record<string, string> = {
   Minor: '輕微',
   Moderate: '中等',

@@ -8,12 +8,13 @@ Guidance for AI coding agents working in this repository. Claude Code reaches th
 「氣象知多少」— a Taiwan weather and disaster-prevention dashboard (Nuxt 4 SSR) that reads
 government open data and serves it from Cloudflare Workers. Most of it comes from the CWA
 (中央氣象署) Open Data platform, but several features read from other agencies' open-data
-platforms with different conventions — air quality from MOENV (環境部), reservoir/river data from
-WRA (經濟部水利署), debris-flow/landslide alerts from ARDSWC (農業部農村發展及水土保持署). Each
-gets its own client in `server/utils/` (`cwa.ts`, `moenv.ts`, `wra.ts`, `ardswc.ts`) rather than
-forcing a shared abstraction — the platforms disagree on auth (API key vs. none), envelope shape,
-and field casing, so a shared client would just be leaky. UI text, docs, and code comments are
-Traditional Chinese; commit messages are English Conventional Commits.
+platforms with different conventions — air quality from MOENV (環境部), reservoir/river data and
+road-flooding sensors from WRA (經濟部水利署), debris-flow/landslide alerts from ARDSWC (農業部
+農村發展及水土保持署), work/school suspension status from DGPA (行政院人事行政總處). Each gets
+its own client in `server/utils/` (`cwa.ts`, `moenv.ts`, `wra.ts`, `ardswc.ts`, `dgpa.ts`) rather
+than forcing a shared abstraction — the platforms disagree on auth (API key vs. none), envelope
+shape, and field casing, so a shared client would just be leaky. UI text, docs, and code comments
+are Traditional Chinese; commit messages are English Conventional Commits.
 
 ## Commands
 
@@ -61,13 +62,13 @@ Three tiers, and the boundary between them is the main design rule:
 - `shared/types/index.ts` — the domain model, imported from both sides as `#shared/types`.
 
 **Raw upstream shapes never leave `server/utils/normalize/`.** CWA's datasets disagree with each
-other on field naming, casing, nesting, and timezone handling — and the other three agencies each
+other on field naming, casing, nesting, and timezone handling — and the other four agencies each
 add their own version of the same problem (see below). Every handler is a thin shell that calls a
 fetch helper (`fetchDataset`/`fetchFileApiDataset` for CWA, `fetchMoenvDataset`, `fetchWraDataset`,
-`fetchDebrisFlowLiveAlerts`/`fetchDebrisFlowHistory` for the others), hands the raw payload (cast
-`as never`) to a normalizer, and returns a `shared/types` value. Adding an endpoint means: type in
-`shared/types`, normalizer in `server/utils/normalize/`, cached handler in `server/api/` — the same
-three-piece pattern regardless of which agency the data comes from.
+`fetchDebrisFlowLiveAlerts`/`fetchDebrisFlowHistory`, `fetchDgpaWorkSchoolHtml` for the others),
+hands the raw payload (cast `as never`) to a normalizer, and returns a `shared/types` value. Adding
+an endpoint means: type in `shared/types`, normalizer in `server/utils/normalize/`, cached handler
+in `server/api/` — the same three-piece pattern regardless of which agency the data comes from.
 
 **Imports.** Top-level `server/utils/*.ts` are Nitro auto-imports — `fetchDataset`,
 `fetchFileApiDataset`, `cacheKeyFor`, `COUNTY_DATASETS` are used without an import statement. The
@@ -124,16 +125,26 @@ machine and silently shifts every timestamp once deployed to a UTC container.
 `locationId` param, not a town name. `server/utils/countyDatasets.ts` holds the verified 22-county
 table (odd id = 3-day hourly, even id = 1-week extended).
 
+**CWA has two different public surfaces, not one.** `fetchDataset`/`fetchFileApiDataset` hit the
+structured Open Data API (`opendata.cwa.gov.tw`, needs `NUXT_CWA_API_KEY`). Lightning
+(`server/api/lightning/frames.get.ts`) and instant alerts (`server/api/warnings/instant.get.ts`)
+aren't in that API at all — they scrape JS meant for the public website
+(`www.cwa.gov.tw/Data/js/...`) with a regex normalizer, no key needed. Unlike every other agency
+client, these two `$fetch` calls are inlined directly in the handler instead of going through
+`cwa.ts`, since they hit a different host under different auth than everything else that file does.
+A third such feature should probably get its own `cwaWeb.ts`-style client rather than a third
+inlined copy.
+
 ## Secrets and config
 
 `NUXT_CWA_API_KEY` → `runtimeConfig.cwaApiKey`, read at request time inside `server/utils/cwa.ts`
 and nowhere else. It never reaches the client bundle or an API response body. Builds do not need a
 real key (CI passes a placeholder); the key is a Worker runtime secret set via `wrangler secret put`.
 `NUXT_MOENV_API_KEY` → `runtimeConfig.moenvApiKey` (`server/utils/moenv.ts`) follows the identical
-pattern for the air-quality feature — same plumbing, different agency. WRA (`server/utils/wra.ts`)
-and ARDSWC (`server/utils/ardswc.ts`) need no key at all; verified live before relying on it, not
-assumed from their docs. Don't add a fake `apiKey()` guard to those two just to look consistent with
-the other clients — there's nothing to guard.
+pattern for the air-quality feature — same plumbing, different agency. WRA (`server/utils/wra.ts`),
+ARDSWC (`server/utils/ardswc.ts`), and DGPA (`server/utils/dgpa.ts`) need no key at all; verified
+live before relying on it, not assumed from their docs. Don't add a fake `apiKey()` guard to those
+three just to look consistent with the other clients — there's nothing to guard.
 
 `nuxt.config.ts` deliberately does not hardcode `nitro.preset`. Local dev/build use the default
 node-server preset; the Cloudflare-specific block (KV cache storage, `nodeCompat`, `deployConfig`)
@@ -176,7 +187,13 @@ initializes off a `watch` on the template ref rather than `onMounted`, because t
 dark-only by product decision, not an unfinished light mode. Chart data colors live separately in
 `app/utils/colorScales.ts`; the `CATEGORICAL` array's order is part of its color-vision-deficiency
 safety guarantee — never reorder or cycle it. Those are a different semantic space from the
-`--color-severity-*` tokens, which mirror CWA's official warning levels.
+`--color-severity-*` tokens, which mirror CWA's official warning levels — see
+`app/utils/warningSeverity.ts` for the `severityClass`/`capSeverityClass`/`instantAlertSeverityClass`
+mappers. Reuse one of these for any new severity-driven card instead of hand-picking Tailwind colors;
+three `/warnings` cards had to be redone (ad-hoc rose/amber/emerald, a decorative gradient, a stray
+`shadow-sm` nothing else on the site uses) after doing exactly that. Card chrome elsewhere is plain:
+`rounded-lg bg-surface-1 p-4`, `text-sm font-medium text-text-secondary` section headers, no
+`shadow-*`.
 
 Pages fetch with `useFetch<T>` against `/api/**`, typed by `#shared/types`. When the URL depends on
 reactive state, pass a getter for both the URL and `key` (see `app/pages/index.vue`).

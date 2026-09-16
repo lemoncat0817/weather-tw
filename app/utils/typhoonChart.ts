@@ -42,7 +42,7 @@ export function buildTyphoonIntensityOption(typhoon: Typhoon): EChartsOption {
   }))
 
   const yAxis: EChartsOption['yAxis'] = [
-    { type: 'value', gridIndex: 0, name: 'hPa', inverse: true },
+    { type: 'value', gridIndex: 0, name: 'hPa', nameLocation: 'start', inverse: true, scale: true },
     { type: 'value', gridIndex: 1, name: 'm/s', min: 0 }
   ]
 

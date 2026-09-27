@@ -8,6 +8,39 @@
 
 **線上版本：[weather-tw.jimdeng0817.workers.dev](https://weather-tw.jimdeng0817.workers.dev)**
 
+<div align="center">
+  <img src="./docs/screenshots/01-home.webp" alt="氣象知多少 首頁與即時氣象總覽" width="100%">
+</div>
+
+## 畫面預覽
+
+全站採深色模式優先（Dark Mode First）現代化 UI 設計，結合 MapLibre GL 互動向量地圖與 ECharts 即時視覺化圖表，完整呈現全台即時氣候與災害告警資訊。
+
+| 首頁即時氣象總覽 | 鄉鎮精準天氣預報 |
+| :---: | :---: |
+| **現況總覽／24h Meteogram／7日預報**<br>整合即時氣溫、體感溫度、風向風速、24 小時晝夜底紋折線圖與一週天氣展望 | **全台 368 鄉鎮細緻預報**<br>逐時氣溫與體感曲線、風標（Wind Barbs）、降雨機率柱狀分布及日月出沒時刻 |
+| <img src="./docs/screenshots/01-home.webp" alt="首頁即時氣象總覽" width="100%"> | <img src="./docs/screenshots/02-forecast.webp" alt="鄉鎮精準天氣預報" width="100%"> |
+
+| 互動地圖與雷達回波 | 颱風動態路徑與時序 |
+| :---: | :---: |
+| **多圖層互動向量地圖**<br>MapLibre GL 向量底圖結合雷達回波動畫播放、全台測站溫度即時觀測疊加與圖層自由切換 | **即時路徑與 70% 侵襲機率錐**<br>歷史與預報路徑軌跡、強度趨勢、中心氣壓與最大風速時序分析 |
+| <img src="./docs/screenshots/03-map.webp" alt="互動地圖與雷達回波" width="100%"> | <img src="./docs/screenshots/04-typhoon.webp" alt="颱風動態路徑與時序" width="100%"> |
+
+| 即時地震報告與震度分布 | 全台氣象測站觀測 |
+| :---: | :---: |
+| **顯著有感與小區域地震速報**<br>即時震央地圖標註、地震規模與深度、各縣市最大實測震度彩色條狀視覺化 | **360+ 測站即時觀測數據**<br>氣象站／雨量站即時分佈，支援氣溫、高低溫、濕度、風速、雨量多欄位排序篩選 |
+| <img src="./docs/screenshots/05-earthquake.webp" alt="即時地震報告與震度分布" width="100%"> | <img src="./docs/screenshots/06-observation.webp" alt="全台氣象測站觀測" width="100%"> |
+
+| 全國空氣品質監測 | 全台水庫水情即時觀測 |
+| :---: | :---: |
+| **AQI 指標與污染濃度**<br>環境部全國測站即時 AQI 色碼分級、PM2.5、PM10 與臭氧即時數據可排序列表 | **水利署水庫水位與蓄水率**<br>全台公告水庫即時蓄水百分比進度條、當前水位 (m) 與進出流量 (CMS) 即時監控 |
+| <img src="./docs/screenshots/07-air-quality.webp" alt="全國空氣品質監測" width="100%"> | <img src="./docs/screenshots/08-reservoir.webp" alt="全台水庫水情即時觀測" width="100%"> |
+
+| 368 鄉鎮健康氣象地圖 | 行動裝置響應式體驗 |
+| :---: | :---: |
+| **熱傷害／冷傷害／溫差提醒**<br>全台 368 鄉鎮健康氣象分級面量圖（Choropleth）、時序播放軸與健康防護提醒 | **Mobile-First 自適應排版**<br>手機版抽屜式導覽選單、自適應卡片流式佈局，小螢幕也能流暢操作 |
+| <img src="./docs/screenshots/09-health.webp" alt="368 鄉鎮健康氣象地圖" width="100%"> | <img src="./docs/screenshots/10-mobile.webp" alt="行動裝置響應式體驗" width="100%"> |
+
 ## 功能
 
 | 頁面 | 內容 |
@@ -73,9 +106,7 @@ shared/   前後端共用型別
 2. **反腐層（anti-corruption layer）** —— 每個政府開放資料來源的欄位命名、巢狀結構、大小寫慣例都不一樣（甚至同一個機關底下的不同資料集也常常不一致）；`server/utils/normalize/**` 統一轉成 `shared/types` 的領域模型，前端完全不接觸原始 JSON。
 3. **依資料時效分層快取** —— 每支 API 以 `defineCachedEventHandler` 設定各自的 TTL，在 Workers 上由 KV 承載。
 
-完整端點清單請直接看 [`server/api/`](server/api/)——路由結構就是端點路徑本身（例如
-`server/api/forecast/[county]/[town].get.ts` 對應 `GET /api/forecast/{county}/{town}`），
-這裡不重複維護一份容易漂移的對照表；新增端點的規則見 [AGENTS.md](AGENTS.md#architecture)。
+完整端點清單請直接看 [`server/api/`](server/api/)——路由結構就是端點路徑本身（例如 `server/api/forecast/[county]/[town].get.ts` 對應 `GET /api/forecast/{county}/{town}`），這裡不重複維護一份容易漂移的對照表；新增端點的規則見 [AGENTS.md](AGENTS.md#architecture)。
 
 ## 部署
 
